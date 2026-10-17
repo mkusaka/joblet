@@ -1,0 +1,4 @@
+[tools]
+lefthook = "2.1.5"
+swiftformat = "0.60.1"
+swiftlint = "0.63.2"

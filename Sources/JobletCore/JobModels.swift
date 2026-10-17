@@ -61,7 +61,7 @@ public struct JobSchedule: Equatable, Codable, Sendable {
                                  repeatedTimePolicy: .first, direction: .forward)
     }
 
-    func validate() throws {
+    public func validate() throws {
         switch kind {
         case .interval:
             guard (1 ... 525_600).contains(intervalMinutes) else {
@@ -175,6 +175,10 @@ public struct LaunchJob: Identifiable, Sendable {
     public var runtime: JobRuntime
     public let draft: JobDraft?
     var revision: FileRevision?
+    /// Optimistic-concurrency token (not a secret) that changes whenever the plist file changes.
+    public var revisionToken: String? {
+        revision?.token
+    }
 
     public init(label: String, name: String, command: String, scheduleDescription: String,
                 schedule: JobSchedule?, plistURL: URL, workingDirectory: String?,
@@ -227,12 +231,5 @@ struct JobletError: LocalizedError {
 
     var errorDescription: String? {
         message
-    }
-}
-
-public extension LaunchJob {
-    /// True when the label is a canonical `local.joblet.<uuid>` label, i.e. the job was created by Joblet.
-    var isCreatedByJoblet: Bool {
-        JobPlist.managedLabel(label)
     }
 }

@@ -6,14 +6,15 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "JobletCore", targets: ["JobletCore"]),
-        .executable(name: "joblet-mcp", targets: ["joblet-mcp"]),
+        .library(name: "JobletMCPKit", targets: ["JobletMCPKit"]),
+        .executable(name: "joblet-mcp", targets: ["JobletMCP"]),
     ],
     targets: [
         .target(name: "JobletCore"),
-        .target(name: "JobletMCP", dependencies: ["JobletCore"]),
-        .executableTarget(name: "joblet-mcp", dependencies: ["JobletMCP", "JobletCore"]),
+        .target(name: "JobletMCPKit", dependencies: ["JobletCore"]),
+        .executableTarget(name: "JobletMCP", dependencies: ["JobletMCPKit"]),
         .testTarget(name: "JobletCoreTests", dependencies: ["JobletCore"]),
-        .testTarget(name: "JobletMCPTests", dependencies: ["JobletMCP", "JobletCore"]),
+        .testTarget(name: "JobletMCPTests", dependencies: ["JobletMCPKit", "JobletCore"]),
     ],
     swiftLanguageVersions: [.v5]
 )

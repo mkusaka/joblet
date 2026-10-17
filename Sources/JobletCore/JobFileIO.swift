@@ -16,6 +16,20 @@ struct FileRevision: Equatable {
     let modifiedNanoseconds: Int64
     let data: Data
 
+    /// Optimistic-concurrency token for MCP clients; not an authentication secret.
+    /// File metadata plus an FNV-1a hash of the complete bytes make stale snapshots distinguishable.
+    var token: String {
+        var hash: UInt64 = 0xCBF2_9CE4_8422_2325
+        for byte in data {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x100_0000_01B3
+        }
+        return [device, inode, UInt64(owner), UInt64(permissions), links,
+                UInt64(bitPattern: size), UInt64(bitPattern: modifiedSeconds),
+                UInt64(bitPattern: modifiedNanoseconds), hash]
+            .map { String($0, radix: 16) }.joined(separator: "-")
+    }
+
     func isSafeToMutate(uid: UInt32) -> Bool {
         owner == uid && permissions & 0o022 == 0 && links == 1
     }

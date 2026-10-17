@@ -1,0 +1,82 @@
+name: Test
+on:
+  workflow_call:
+  push:
+    tags-ignore:
+      - 'v*'
+  pull_request:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions: {}
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+jobs:
+  lint:
+    name: Lint (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-15]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: 2026.10.7
+          cache: false
+      - name: Show Swift toolchain
+        run: |
+          xcrun swift --version
+          xcodebuild -version
+      - name: SwiftFormat check
+        run: mise exec -- swiftformat --lint .
+      - name: SwiftLint check
+        run: mise exec -- swiftlint lint --quiet
+    timeout-minutes: 60
+  swift-test:
+    name: Swift Package Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-15]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Show Swift toolchain
+        run: |
+          xcrun swift --version
+          xcodebuild -version
+      - name: Run tests
+        run: swift test
+    timeout-minutes: 60
+  ui-test:
+    name: UI Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-15]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Show Swift toolchain
+        run: |
+          xcrun swift --version
+          xcodebuild -version
+      - name: Run UI tests
+        run: |
+          xcodebuild -project Joblet.xcodeproj \
+            -scheme Joblet \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY=- \
+            test
+    timeout-minutes: 60

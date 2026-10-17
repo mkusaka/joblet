@@ -15,6 +15,7 @@ enum AppEnvironment {
         guard isUITesting else { return JobStore() }
         let home = FileManager.default.temporaryDirectory
             .appendingPathComponent("joblet-ui-testing-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: home, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let launchctl = InMemoryLaunchctl()
         let repository = JobRepository(homeDirectory: home, runner: launchctl)
         return JobStore(repository: repository) {

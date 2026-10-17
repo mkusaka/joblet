@@ -1,9 +1,11 @@
 import AppKit
 import JobletCore
+import JobletSparkle
 import SwiftUI
 
 @MainActor
 struct MenuBarView: View {
+    let updater: SparkleUpdater
     @EnvironmentObject private var store: JobStore
     @Environment(\.openWindow) private var openWindow
 
@@ -117,6 +119,10 @@ struct MenuBarView: View {
                     Label("Settings", systemImage: "gearshape")
                 }
                 .buttonStyle(.borderless)
+                Spacer()
+                Button("Check for Updates…") { updater.checkForUpdates(nil) }
+                    .buttonStyle(.borderless)
+                    .disabled(AppEnvironment.isUITesting)
                 Spacer()
                 Button("Quit") { NSApplication.shared.terminate(nil) }
                     .buttonStyle(.borderless)

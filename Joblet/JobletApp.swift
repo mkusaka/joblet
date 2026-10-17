@@ -1,4 +1,5 @@
 import AppKit
+import JobletSparkle
 import SwiftUI
 
 @main
@@ -7,6 +8,8 @@ struct JobletApp: App {
     @NSApplicationDelegateAdaptor(JobletAppDelegate.self) private var appDelegate
     @StateObject private var store = AppEnvironment.makeStore()
     @StateObject private var launchAtLogin = LaunchAtLogin(stubbed: AppEnvironment.isUITesting)
+    /// Never started in UI tests, so they cannot hit the network or show update prompts.
+    @State private var updater = SparkleUpdater(startingUpdater: !AppEnvironment.isUITesting)
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -31,6 +34,10 @@ struct JobletApp: App {
         .defaultSize(width: 1040, height: 720)
         .windowStyle(.titleBar)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { updater.checkForUpdates(nil) }
+                    .disabled(AppEnvironment.isUITesting)
+            }
             CommandGroup(after: .newItem) {
                 Button("Refresh Jobs") {
                     Task { await store.refresh() }
@@ -41,7 +48,7 @@ struct JobletApp: App {
         }
 
         MenuBarExtra("Joblet", systemImage: "clock.arrow.circlepath") {
-            MenuBarView()
+            MenuBarView(updater: updater)
                 .environmentObject(store)
                 .task { await store.refresh() }
         }

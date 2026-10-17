@@ -159,7 +159,9 @@ final class JobletUITests: XCTestCase {
     func testDeleteJob() {
         select("Paused Cleanup")
         element("more-actions-menu").click()
-        app.menuItems["Delete Job…"].click()
+        let deleteItem = app.menuItems["Delete Job…"]
+        XCTAssertTrue(deleteItem.waitForExistence(timeout: timeout))
+        deleteItem.click()
         let confirm = app.sheets.buttons["Delete"]
         XCTAssertTrue(confirm.waitForExistence(timeout: timeout))
         confirm.click()

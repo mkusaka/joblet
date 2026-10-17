@@ -229,3 +229,10 @@ struct JobletError: LocalizedError {
         message
     }
 }
+
+public extension LaunchJob {
+    /// True when the label is a canonical `local.joblet.<uuid>` label, i.e. the job was created by Joblet.
+    var isCreatedByJoblet: Bool {
+        JobPlist.managedLabel(label)
+    }
+}

@@ -4,6 +4,8 @@ import SwiftUI
 
 @MainActor
 struct JobletSettingsView: View {
+    @ObservedObject var launchAtLogin: LaunchAtLogin
+
     private var bundledMCPURL: URL {
         Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/joblet-mcp", isDirectory: false)
     }
@@ -18,6 +20,22 @@ struct JobletSettingsView: View {
                 LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
                 Text("Scheduled jobs for your Mac, from a small window.")
                     .foregroundStyle(.secondary)
+            }
+
+            Section("General") {
+                Toggle("Open Joblet at login", isOn: Binding(get: { launchAtLogin.isOn }, set: { launchAtLogin.setEnabled($0) }))
+                    .accessibilityIdentifier("launch-at-login-toggle")
+                if launchAtLogin.status == .requiresApproval {
+                    Text("Approve Joblet in System Settings > General > Login Items to finish enabling this.")
+                        .foregroundStyle(.secondary)
+                    Button("Open Login Items Settings") { SMAppService.openSystemSettingsLoginItems() }
+                } else if launchAtLogin.status == .notFound {
+                    Text("The login item could not be found. Move Joblet to /Applications and try again.")
+                        .foregroundStyle(.secondary)
+                }
+                if let message = launchAtLogin.errorMessage {
+                    Text(message).foregroundStyle(.red)
+                }
             }
 
             Section("Agent integration (MCP)") {
@@ -66,7 +84,8 @@ struct JobletSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 590, height: 710)
+        .frame(width: 590, height: 770)
+        .onAppear { launchAtLogin.refresh() }
     }
 
     private func copyMCPJSON(arguments: [String]) {

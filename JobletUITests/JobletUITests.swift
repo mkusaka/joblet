@@ -166,4 +166,15 @@ final class JobletUITests: XCTestCase {
         XCTAssertTrue(waitForGone(rowName("Paused Cleanup")))
         XCTAssertEqual(rowCount, 2)
     }
+
+    func testLaunchAtLoginToggleInSettings() {
+        app.typeKey(",", modifierFlags: .command)
+        let toggle = element("launch-at-login-toggle")
+        XCTAssertTrue(toggle.waitForExistence(timeout: timeout))
+        XCTAssertTrue(waitForValue(toggle, "0"))
+        toggle.click()
+        XCTAssertTrue(waitForValue(toggle, "1"))
+        toggle.click()
+        XCTAssertTrue(waitForValue(toggle, "0"))
+    }
 }

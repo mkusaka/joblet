@@ -6,6 +6,7 @@ import SwiftUI
 struct JobletApp: App {
     @NSApplicationDelegateAdaptor(JobletAppDelegate.self) private var appDelegate
     @StateObject private var store = AppEnvironment.makeStore()
+    @StateObject private var launchAtLogin = LaunchAtLogin(stubbed: AppEnvironment.isUITesting)
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -47,7 +48,7 @@ struct JobletApp: App {
         .menuBarExtraStyle(.window)
 
         Settings {
-            JobletSettingsView()
+            JobletSettingsView(launchAtLogin: launchAtLogin)
         }
     }
 }

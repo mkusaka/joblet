@@ -21,5 +21,16 @@ xcodebuild \
   CODE_SIGN_IDENTITY=- \
   build
 
+# Bundle the headless MCP server so the configured path stays stable after installing the app.
+app="$project_dir/build/Build/Products/Release/Joblet.app"
+swift build --package-path "$project_dir" --configuration release --product joblet-mcp
+bin_dir="$(swift build --package-path "$project_dir" --configuration release --show-bin-path)"
+mkdir -p "$app/Contents/Helpers"
+install -m 755 "$bin_dir/joblet-mcp" "$app/Contents/Helpers/joblet-mcp"
+# Modifying a signed bundle invalidates its signature; re-sign locally (ad-hoc).
+codesign --force --deep --sign - "$app"
+codesign --verify --deep --strict "$app"
+
 echo ""
-echo "Built: $project_dir/build/Build/Products/Release/Joblet.app"
+echo "Built: $app"
+echo "MCP server: $app/Contents/Helpers/joblet-mcp"

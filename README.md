@@ -60,47 +60,36 @@ Created jobs get the label `local.joblet.<UUID>` (not editable). Logs live under
 
 ## MCP server
 
-`joblet-mcp` speaks MCP over stdio (newline-delimited JSON-RPC 2.0; spec revision 2025-11-25 and older; stdout carries protocol messages only, logs go to stderr).
+`joblet-mcp` lets AI agents operate jobs over stdio, read-only by default. Build it with `swift build -c release --product joblet-mcp` (or use `scripts/build-app.sh`, which bundles it at `Joblet.app/Contents/Helpers/joblet-mcp`), then register it with an absolute path:
 
 ```bash
-swift build -c release --product joblet-mcp
-# binary: .build/release/joblet-mcp
+claude mcp add joblet -- /path/to/joblet-mcp --allow-write --allow-run
 ```
-
-Claude Code:
-
-```bash
-claude mcp add joblet -- /path/to/joblet-mcp --allow-run
-```
-
-Codex (`~/.codex/config.toml`):
 
 ```toml
+# ~/.codex/config.toml
 [mcp_servers.joblet]
 command = "/path/to/joblet-mcp"
-args = ["--allow-run"]
+args = ["--allow-write", "--allow-run"]
 ```
-
-The server is read-only by default. Disallowed tools are not listed and are rejected if called.
 
 | Flag | Enables |
 | --- | --- |
-| *(none)* | `list_jobs`, `get_job` (definition, runtime state, plist XML), `read_log` |
-| `--allow-create` | `create_job` |
-| `--allow-update` | `update_job`, `set_job_enabled` |
+| *(none)* | `list_jobs`, `get_job`, `read_log` (jobs created by Joblet only) |
+| `--allow-write` | `create_job`, `update_job`, `set_job_enabled` |
 | `--allow-run` | `run_job` |
 | `--allow-delete` | `delete_job` |
-| `--allow-all` | the four flags above |
-| `--allow-foreign-jobs` | `run_job` / `set_job_enabled` on jobs not created by Joblet |
+| `--include-external` | show jobs created by other apps |
+| `--allow-external-control` | enable/disable/run external jobs (needs `--include-external`) |
 
-Jobs not created by Joblet (label not `local.joblet.<uuid>`) cannot be operated by default. `--allow-foreign-jobs` lifts that only for run, enable and disable. Edit, delete and `read_log` are refused for them regardless, and every repository safety check above still applies. A job is identified by its `label`; schedule fields mirror the app (`kind`, `interval_minutes`, `hour`, `minute`, `weekday`).
+Mutations need the current `expected_revision`, and deletes need `confirm_label`. External jobs can never be edited or deleted. Details, tools and protocol notes: [docs/MCP.md](docs/MCP.md).
 
 ## Development
 
 ```bash
 mise install          # swiftformat, swiftlint, lefthook
 lefthook install      # pre-commit format and lint
-swift test            # JobletCore and JobletMCP tests; never touch real launchd
+swift test            # JobletCore and MCP tests (including a spawned joblet-mcp); never touch real launchd
 mise exec -- swiftformat --lint .
 mise exec -- swiftlint lint --quiet
 xcodebuild -project Joblet.xcodeproj -scheme Joblet -destination 'platform=macOS' CODE_SIGN_IDENTITY=- test

@@ -4,11 +4,42 @@ import SwiftUI
 
 @MainActor
 struct JobletSettingsView: View {
+    private var bundledMCPURL: URL {
+        Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/joblet-mcp", isDirectory: false)
+    }
+
+    private var hasBundledMCP: Bool {
+        FileManager.default.isExecutableFile(atPath: bundledMCPURL.path)
+    }
+
     var body: some View {
         Form {
             Section("Joblet") {
                 LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
                 Text("Scheduled jobs for your Mac, from a small window.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Agent integration (MCP)") {
+                Text("Let Codex or Claude Code operate your jobs. The MCP server uses stdio and works without Joblet running.")
+                if hasBundledMCP {
+                    LabeledContent("MCP executable") {
+                        Text(bundledMCPURL.path)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                    }
+                    HStack {
+                        Button("Copy Read-Only Config") { copyMCPJSON(arguments: []) }
+                        Button("Copy Config with Create, Edit and Run") {
+                            copyMCPJSON(arguments: ["--allow-write", "--allow-run"])
+                        }
+                    }
+                } else {
+                    Text("This build does not include the MCP server. Run scripts/build-app.sh to build Joblet.app with it; building in Xcode alone does not bundle it.")
+                        .foregroundStyle(.secondary)
+                }
+                Text("The copied JSON uses the Claude Desktop / Claude Code format. See docs/MCP.md for Codex TOML and the full flag list. Write access lets an agent register and run commands as you, so connect only agents you trust. Deleting needs --allow-delete separately.")
+                    .font(.callout)
                     .foregroundStyle(.secondary)
             }
 
@@ -35,6 +66,13 @@ struct JobletSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 570)
+        .frame(width: 590, height: 710)
+    }
+
+    private func copyMCPJSON(arguments: [String]) {
+        let config: [String: Any] = ["mcpServers": ["joblet": ["command": bundledMCPURL.path, "args": arguments]]]
+        guard let data = try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys]) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(String(decoding: data, as: UTF8.self), forType: .string)
     }
 }

@@ -4,6 +4,8 @@ A small SwiftUI app for managing scheduled jobs on your Mac. Joblet is a front e
 
 Joblet has no third-party dependencies and no timers of its own. Quit the app and your jobs keep running, because macOS runs them.
 
+![Joblet main window](docs/images/main-window.png)
+
 ## Features
 
 - List, search and filter jobs (all / created by Joblet / existing), with running / waiting / not loaded / unknown state.

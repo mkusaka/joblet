@@ -10,7 +10,7 @@ final class JobletUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-ui-testing", "-ApplePersistenceIgnoreState", "YES"]
+        app.launchArguments = ["-ui-testing"]
         app.launch()
         XCTAssertTrue(rowName("Nightly Backup").waitForExistence(timeout: timeout), "Fixture jobs did not load")
     }
@@ -22,7 +22,11 @@ final class JobletUITests: XCTestCase {
     }
 
     private func rowName(_ name: String) -> XCUIElement {
-        app.staticTexts.matching(identifier: "job-row-name").matching(NSPredicate(format: "label == %@", name)).firstMatch
+        app.staticTexts.matching(identifier: "job-row-name").matching(NSPredicate(format: "value == %@", name)).firstMatch
+    }
+
+    private func text(_ element: XCUIElement) -> String {
+        element.value as? String ?? ""
     }
 
     private var rowCount: Int {
@@ -31,16 +35,20 @@ final class JobletUITests: XCTestCase {
 
     private func select(_ name: String) {
         rowName(name).click()
-        XCTAssertTrue(waitForLabel(element("detail-name"), name), "Detail pane did not show \(name)")
+        XCTAssertTrue(waitForText(element("detail-name"), name), "Detail pane did not show \(name)")
     }
 
-    private func waitForLabel(_ element: XCUIElement, _ label: String) -> Bool {
-        let predicate = NSPredicate(format: "label == %@", label)
+    /// SwiftUI `Text` exposes its string as the accessibility value, not the label.
+    private func waitForText(_ element: XCUIElement, _ text: String) -> Bool {
+        let predicate = NSPredicate(format: "value == %@", text)
         return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
     }
 
+    /// Switch values are numbers (0/1), so compare their string form.
     private func waitForValue(_ element: XCUIElement, _ value: String) -> Bool {
-        let predicate = NSPredicate(format: "value == %@", value)
+        let predicate = NSPredicate { object, _ in
+            String(describing: (object as? XCUIElement)?.value ?? "") == value
+        }
         return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
     }
 
@@ -82,10 +90,10 @@ final class JobletUITests: XCTestCase {
     func testCreateJobShowsInListAndDetail() {
         createJob(name: "UI Test Job", command: "echo hello", intervalMinutes: "15")
         XCTAssertTrue(rowName("UI Test Job").waitForExistence(timeout: timeout))
-        XCTAssertTrue(waitForLabel(element("detail-name"), "UI Test Job"))
-        XCTAssertTrue(waitForLabel(element("detail-command"), "echo hello"))
-        XCTAssertEqual(element("detail-status").label, "Waiting")
-        XCTAssertTrue(element("detail-label").label.hasPrefix("local.joblet."))
+        XCTAssertTrue(waitForText(element("detail-name"), "UI Test Job"))
+        XCTAssertTrue(waitForText(element("detail-command"), "echo hello"))
+        XCTAssertEqual(text(element("detail-status")), "Waiting")
+        XCTAssertTrue(text(element("detail-label")).hasPrefix("local.joblet."))
         XCTAssertEqual(rowCount, 4)
     }
 
@@ -100,19 +108,19 @@ final class JobletUITests: XCTestCase {
         XCTAssertTrue(waitForGone(element("editor-save")))
         XCTAssertTrue(rowName("Renamed Backup").waitForExistence(timeout: timeout))
         XCTAssertFalse(rowName("Nightly Backup").exists)
-        XCTAssertTrue(waitForLabel(element("detail-name"), "Renamed Backup"))
-        XCTAssertTrue(waitForLabel(element("detail-command"), "echo renamed"))
+        XCTAssertTrue(waitForText(element("detail-name"), "Renamed Backup"))
+        XCTAssertTrue(waitForText(element("detail-command"), "echo renamed"))
     }
 
     func testToggleEnableDisable() {
         select("Nightly Backup")
         let toggle = element("detail-toggle")
-        XCTAssertEqual(element("detail-status").label, "Waiting")
+        XCTAssertEqual(text(element("detail-status")), "Waiting")
         toggle.click()
-        XCTAssertTrue(waitForLabel(element("detail-status"), "Not loaded"))
+        XCTAssertTrue(waitForText(element("detail-status"), "Not loaded"))
         XCTAssertTrue(waitForValue(toggle, "0"))
         toggle.click()
-        XCTAssertTrue(waitForLabel(element("detail-status"), "Waiting"))
+        XCTAssertTrue(waitForText(element("detail-status"), "Waiting"))
         XCTAssertTrue(waitForValue(toggle, "1"))
     }
 
@@ -122,7 +130,7 @@ final class JobletUITests: XCTestCase {
         XCTAssertTrue(run.isEnabled)
         run.click()
         // The in-memory launchctl marks the job as running; no process is spawned.
-        XCTAssertTrue(waitForLabel(element("detail-status"), "Running"))
+        XCTAssertTrue(waitForText(element("detail-status"), "Running"))
         XCTAssertFalse(run.isEnabled)
     }
 
@@ -152,7 +160,7 @@ final class JobletUITests: XCTestCase {
         select("Paused Cleanup")
         element("more-actions-menu").click()
         app.menuItems["Delete Job…"].click()
-        let confirm = app.buttons["Delete"]
+        let confirm = app.sheets.buttons["Delete"]
         XCTAssertTrue(confirm.waitForExistence(timeout: timeout))
         confirm.click()
         XCTAssertTrue(waitForGone(rowName("Paused Cleanup")))

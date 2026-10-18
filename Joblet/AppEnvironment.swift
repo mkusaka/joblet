@@ -11,6 +11,15 @@ enum AppEnvironment {
             || ProcessInfo.processInfo.environment["JOBLET_UI_TESTING"] == "1"
     }
 
+    /// How often the open window reloads the job list. UI tests can stretch it so a periodic reload
+    /// cannot stand in for the one a test triggers.
+    static var refreshInterval: Duration {
+        guard isUITesting, let seconds = Int(ProcessInfo.processInfo.environment["JOBLET_UI_TEST_REFRESH_INTERVAL_S"] ?? "") else {
+            return .seconds(10)
+        }
+        return .seconds(seconds)
+    }
+
     static func makeStore() -> JobStore {
         guard isUITesting else { return JobStore() }
         let home = FileManager.default.temporaryDirectory

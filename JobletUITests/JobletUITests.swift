@@ -154,12 +154,16 @@ final class JobletUITests: XCTestCase {
     func testFooterTimestampRefreshesNow() {
         app.terminate()
         app.launchEnvironment["JOBLET_UI_TEST_LAUNCHCTL_DELAY_MS"] = "1000"
+        app.launchEnvironment["JOBLET_UI_TEST_REFRESH_INTERVAL_S"] = "600"
         app.launch()
         let footer = element("footer-refresh-button")
         XCTAssertTrue(footer.waitForExistence(timeout: timeout))
+        let before = footer.label
         footer.click()
-        XCTAssertTrue(waitForGone(footer), "Clicking the timestamp did not start a refresh")
-        XCTAssertTrue(footer.waitForExistence(timeout: timeout))
+        // The 1 s launchctl delay guarantees the new "Checked" time is at least a second later.
+        let changed = NSPredicate(format: "exists == true AND label != %@", before)
+        let result = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: changed, object: footer)], timeout: timeout)
+        XCTAssertEqual(result, .completed, "Clicking the timestamp did not refresh (still \(before))")
     }
 
     func testToggleEnableDisable() {

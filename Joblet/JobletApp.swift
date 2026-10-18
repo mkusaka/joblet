@@ -22,7 +22,7 @@ struct JobletApp: App {
                     await store.refresh()
                     while !Task.isCancelled {
                         do {
-                            try await Task.sleep(nanoseconds: 10_000_000_000)
+                            try await Task.sleep(for: AppEnvironment.refreshInterval)
                         } catch {
                             return
                         }

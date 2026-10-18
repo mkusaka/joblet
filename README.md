@@ -2,7 +2,7 @@
 
 A small SwiftUI app for managing scheduled jobs on your Mac. Joblet is a front end for `launchd`: it creates, edits, enables, disables and runs the LaunchAgents in `~/Library/LaunchAgents`, and ships an MCP server so AI agents can do the same under explicit, opt-in permissions.
 
-Joblet's only third-party dependency is [Sparkle](https://sparkle-project.org) for updates, and it has no timers of its own. Quit the app and your jobs keep running, because macOS runs them.
+Quit the app and your jobs keep running, because macOS runs them.
 
 ![Joblet main window](docs/images/main-window.png)
 
@@ -21,7 +21,7 @@ Jobs from other apps can be viewed, and enabled, disabled or run when they can b
 
 ## Requirements
 
-macOS 14 or later, Xcode 26 / Swift 6 toolchain (the package uses Swift language mode 5).
+macOS 14 or later. Building from source needs Xcode 26.
 
 ## Install
 
@@ -29,7 +29,7 @@ macOS 14 or later, Xcode 26 / Swift 6 toolchain (the package uses Swift language
 brew install --cask mkusaka/tap/joblet
 ```
 
-Or download `Joblet.zip` from [GitHub Releases](https://github.com/mkusaka/joblet/releases). Releases are signed with a Developer ID certificate and notarized. The MCP server is bundled at `Joblet.app/Contents/Helpers/joblet-mcp`.
+Or download `Joblet.zip` from [GitHub Releases](https://github.com/mkusaka/joblet/releases). The MCP server is bundled at `Joblet.app/Contents/Helpers/joblet-mcp`.
 
 ## Build and run
 
@@ -96,36 +96,3 @@ args = ["--allow-write", "--allow-run"]
 | `--allow-external-control` | enable/disable/run/group external jobs (needs `--include-external`) |
 
 Mutations other than `set_job_group` need the current `expected_revision`, and deletes need `confirm_label`. External jobs can never be edited or deleted. Details, tools and protocol notes: [docs/MCP.md](docs/MCP.md).
-
-## Development
-
-```bash
-mise install          # swiftformat, swiftlint, lefthook
-lefthook install      # pre-commit format and lint
-swift test            # JobletCore and MCP tests (including a spawned joblet-mcp); never touch real launchd
-mise exec -- swiftformat --lint .
-mise exec -- swiftlint lint --quiet
-xcodebuild -project Joblet.xcodeproj -scheme Joblet -destination 'platform=macOS' CODE_SIGN_IDENTITY=- test
-```
-
-Unit tests use a temporary home and an in-memory launchctl. The UI tests (`JobletUITests`) drive the app with UI automation and need Accessibility / automation permission on a local Mac; they run against a temporary home as well.
-
-## Release automation
-
-`release.yml` archives the app, adds a universal `joblet-mcp` to `Contents/Helpers`, signs both with Developer ID and the hardened runtime, notarizes and staples the app, then uploads `Joblet.zip` to GitHub Releases, dispatches the cask update to `mkusaka/homebrew-tap`, and deploys `appcast.xml` to the `gh-pages` branch (served at `https://mkusaka.github.io/joblet/appcast.xml`, the Sparkle feed). It runs only for `github.actor == 'mkusaka'` in the `release` environment.
-
-Required secrets: `APPLE_TEAM_ID`, `APPLE_DEVELOPER_ID_P12_BASE64`, `APPLE_DEVELOPER_ID_P12_PASSWORD`, `APPLE_KEYCHAIN_PASSWORD`, `APPLE_APP_STORE_CONNECT_API_KEY_BASE64`, `APPLE_APP_STORE_CONNECT_KEY_ID`, `APPLE_APP_STORE_CONNECT_ISSUER_ID`, `HOMEBREW_TAP_TOKEN`, `SPARKLE_ED_PRIVATE_KEY` (must match the `SUPublicEDKey` in the Xcode project). GitHub Pages must serve the `gh-pages` branch.
-
-Cut a release by pushing a tag; the version comes from the tag, so no version-bump commit is needed:
-
-```bash
-VERSION=0.1.0
-git tag "v${VERSION}"
-git push origin "v${VERSION}"
-```
-
-To validate signing and notarization without publishing, run `gh workflow run Release --field version=0.1.0`. A manual run skips the GitHub Release, the Homebrew dispatch and the appcast. See `skills/release/SKILL.md`.
-
-## CI
-
-GitHub Actions (`.github/workflows`): `test.yml` runs SwiftFormat/SwiftLint, `swift test`, and the Xcode UI tests on `macos-26` and `macos-15`; `workflow-lint.yml` checks the workflows (actionlint, ghalint, zizmor, CodeQL, pinact). Renovate keeps actions and mise tools current.

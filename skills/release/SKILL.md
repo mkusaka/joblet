@@ -17,8 +17,19 @@ metadata:
 
 # Joblet Release
 
-The canonical reference is the release section in `README.md`. If the skill and
-the README diverge, update the README first and then align this skill.
+`release.yml` archives the app, adds a universal `joblet-mcp` to
+`Contents/Helpers`, signs both with Developer ID and the hardened runtime,
+notarizes and staples the app, uploads `Joblet.zip` to GitHub Releases,
+dispatches the cask update to `mkusaka/homebrew-tap`, and deploys `appcast.xml`
+to `gh-pages` (`https://mkusaka.github.io/joblet/appcast.xml`, the Sparkle feed).
+It runs only for `github.actor == 'mkusaka'` in the `release` environment.
+
+Required secrets: `APPLE_TEAM_ID`, `APPLE_DEVELOPER_ID_P12_BASE64`,
+`APPLE_DEVELOPER_ID_P12_PASSWORD`, `APPLE_KEYCHAIN_PASSWORD`,
+`APPLE_APP_STORE_CONNECT_API_KEY_BASE64`, `APPLE_APP_STORE_CONNECT_KEY_ID`,
+`APPLE_APP_STORE_CONNECT_ISSUER_ID`, `HOMEBREW_TAP_TOKEN`,
+`SPARKLE_ED_PRIVATE_KEY` (must match `SUPublicEDKey` in
+`Config/Joblet-Info.plist`). GitHub Pages must serve the `gh-pages` branch.
 
 ## When to use
 

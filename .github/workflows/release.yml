@@ -25,6 +25,8 @@ jobs:
     permissions:
       contents: write
     env:
+      # Repository variable: "adhoc" ships an ad-hoc signed, unnotarized build; anything else ships Developer ID + notarization.
+      SIGNING: ${{ vars.RELEASE_SIGNING == 'adhoc' && 'adhoc' || 'developer-id' }}
       APPLE_DEVELOPER_ID_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
       APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
       APPLE_KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
@@ -64,15 +66,18 @@ jobs:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
-          required_secrets=(
-            APPLE_DEVELOPER_ID_P12_BASE64
-            APPLE_DEVELOPER_ID_P12_PASSWORD
-            APPLE_KEYCHAIN_PASSWORD
-            APPLE_APP_STORE_CONNECT_API_KEY_BASE64
-            APPLE_APP_STORE_CONNECT_ISSUER_ID
-            APPLE_APP_STORE_CONNECT_KEY_ID
-            APPLE_TEAM_ID
-          )
+          required_secrets=()
+          if [[ "$SIGNING" == "developer-id" ]]; then
+            required_secrets+=(
+              APPLE_DEVELOPER_ID_P12_BASE64
+              APPLE_DEVELOPER_ID_P12_PASSWORD
+              APPLE_KEYCHAIN_PASSWORD
+              APPLE_APP_STORE_CONNECT_API_KEY_BASE64
+              APPLE_APP_STORE_CONNECT_ISSUER_ID
+              APPLE_APP_STORE_CONNECT_KEY_ID
+              APPLE_TEAM_ID
+            )
+          fi
 
           if [[ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]]; then
             required_secrets+=(HOMEBREW_TAP_TOKEN SPARKLE_ED_PRIVATE_KEY)
@@ -85,6 +90,7 @@ jobs:
             fi
           done
       - name: Install signing assets
+        if: env.SIGNING == 'developer-id'
         run: |
           mkdir -p build
 
@@ -119,6 +125,7 @@ jobs:
             echo "APP_STORE_CONNECT_KEY_PATH=$APP_STORE_CONNECT_KEY_PATH"
           } >> "$GITHUB_ENV"
       - name: Archive
+        if: env.SIGNING == 'developer-id'
         run: |
           xcodebuild archive \
             -project Joblet.xcodeproj \
@@ -132,6 +139,7 @@ jobs:
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_VERSION"
       - name: Export signed app
+        if: env.SIGNING == 'developer-id'
         run: |
           cat > build/ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -154,6 +162,19 @@ jobs:
             -archivePath build/Joblet.xcarchive \
             -exportPath build/export \
             -exportOptionsPlist build/ExportOptions.plist
+      - name: Build ad-hoc signed app
+        if: env.SIGNING == 'adhoc'
+        run: |
+          xcodebuild build \
+            -project Joblet.xcodeproj \
+            -scheme Joblet \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_IDENTITY=- \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_VERSION"
+          mkdir -p build/export
+          ditto build/DerivedData/Build/Products/Release/Joblet.app build/export/Joblet.app
       - name: Verify exported bundle versions
         run: |
           PLIST="build/export/Joblet.app/Contents/Info.plist"
@@ -181,22 +202,27 @@ jobs:
           install -m 755 "$BIN_DIR/joblet-mcp" "$APP/Contents/Helpers/joblet-mcp"
 
           # Sign the helper first, then re-sign the app so its seal covers the helper.
-          codesign --force --options runtime --timestamp \
-            --keychain "$KEYCHAIN_PATH" \
-            --sign "Developer ID Application" \
-            "$APP/Contents/Helpers/joblet-mcp"
-          codesign --force --options runtime --timestamp \
-            --preserve-metadata=entitlements \
-            --keychain "$KEYCHAIN_PATH" \
-            --sign "Developer ID Application" \
-            "$APP"
-
-          codesign --display --verbose=2 "$APP/Contents/Helpers/joblet-mcp" 2>&1 | grep -q 'flags=.*runtime'
+          if [[ "$SIGNING" == "adhoc" ]]; then
+            codesign --force --sign - "$APP/Contents/Helpers/joblet-mcp"
+            codesign --force --deep --sign - "$APP"
+          else
+            codesign --force --options runtime --timestamp \
+              --keychain "$KEYCHAIN_PATH" \
+              --sign "Developer ID Application" \
+              "$APP/Contents/Helpers/joblet-mcp"
+            codesign --force --options runtime --timestamp \
+              --preserve-metadata=entitlements \
+              --keychain "$KEYCHAIN_PATH" \
+              --sign "Developer ID Application" \
+              "$APP"
+            codesign --display --verbose=2 "$APP/Contents/Helpers/joblet-mcp" 2>&1 | grep -q 'flags=.*runtime'
+          fi
           lipo -archs "$APP/Contents/Helpers/joblet-mcp"
       - name: Verify signed app
         run: |
           codesign --verify --deep --strict --verbose=2 build/export/Joblet.app
       - name: Notarize app
+        if: env.SIGNING == 'developer-id'
         run: |
           ditto -c -k --keepParent build/export/Joblet.app build/Joblet.notarization.zip
 
@@ -207,6 +233,7 @@ jobs:
             --timeout 1h \
             --wait
       - name: Staple notarization ticket
+        if: env.SIGNING == 'developer-id'
         run: |
           xcrun stapler staple -v build/export/Joblet.app
           xcrun stapler validate -v build/export/Joblet.app
@@ -248,12 +275,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          NOTES=""
+          if [[ "$SIGNING" == "adhoc" ]]; then
+            NOTES="> [!WARNING]
+          > This build is ad-hoc signed and not notarized, so Gatekeeper blocks the first launch. Allow it in System Settings → Privacy & Security → Open Anyway, or run \`xattr -dr com.apple.quarantine /Applications/Joblet.app\`."
+          fi
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" Joblet.zip --clobber
           else
             gh release create "$GITHUB_REF_NAME" \
               Joblet.zip \
               --title "Joblet $GITHUB_REF_NAME" \
+              --notes "$NOTES" \
               --generate-notes
           fi
       - name: Update Homebrew tap

@@ -24,6 +24,8 @@ struct JobDetailView: View {
     let onEdit: () -> Void
     let onAction: (JobActionKind) -> Void
     @State private var tab: DetailTab = .settings
+    @State private var isNamingGroup = false
+    @State private var newGroupName = ""
 
     var body: some View {
         ScrollView {
@@ -56,6 +58,19 @@ struct JobDetailView: View {
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .top)
         }
+        .alert("New Group", isPresented: $isNamingGroup) {
+            TextField("Group name", text: $newGroupName)
+                .accessibilityIdentifier("new-group-name")
+            Button("Add") { setGroup(newGroupName) }
+                .accessibilityIdentifier("new-group-add")
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Jobs in the same group are listed together in the sidebar.")
+        }
+    }
+
+    private func setGroup(_ name: String?) {
+        Task { await store.setGroup(job, group: name) }
     }
 
     @ViewBuilder
@@ -144,6 +159,8 @@ struct JobDetailView: View {
                 Button("Show Plist", systemImage: "doc.plaintext") { tab = .details }
                     .accessibilityIdentifier("show-plist-button")
 
+                groupMenu
+
                 Menu {
                     Button("Copy Label", systemImage: "doc.on.doc") {
                         copyJobletText(job.label)
@@ -174,6 +191,34 @@ struct JobDetailView: View {
                 Spacer(minLength: 0)
             }
         }
+    }
+
+    private var groupMenu: some View {
+        Menu {
+            ForEach(store.groupNames, id: \.self) { name in
+                Button {
+                    setGroup(name)
+                } label: {
+                    if job.group == name { Label(name, systemImage: "checkmark") } else { Text(name) }
+                }
+            }
+            if !store.groupNames.isEmpty { Divider() }
+            Button("New Group…") {
+                newGroupName = ""
+                isNamingGroup = true
+            }
+            .accessibilityIdentifier("new-group-menu-item")
+            if job.group != nil {
+                Button("Remove from Group") { setGroup(nil) }
+                    .accessibilityIdentifier("remove-group-menu-item")
+            }
+        } label: {
+            Label(job.group ?? "Add to Group", systemImage: "folder")
+        }
+        .fixedSize()
+        .disabled(store.isBusy)
+        .help("Group this job in the sidebar")
+        .accessibilityIdentifier("group-menu")
     }
 
     private var runHelp: String {

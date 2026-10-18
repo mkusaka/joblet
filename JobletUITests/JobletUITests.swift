@@ -25,6 +25,15 @@ final class JobletUITests: XCTestCase {
         app.staticTexts.matching(identifier: "job-row-name").matching(NSPredicate(format: "value == %@", name)).firstMatch
     }
 
+    private func groupHeader(_ name: String) -> XCUIElement {
+        app.staticTexts.matching(identifier: "group-section-header").matching(NSPredicate(format: "value == %@", name)).firstMatch
+    }
+
+    /// Sections are ordered by name with "Ungrouped" last, so a row belongs to the nearest header above it.
+    private func isListed(_ row: XCUIElement, below header: XCUIElement, above next: XCUIElement?) -> Bool {
+        row.frame.minY > header.frame.minY && (next.map { row.frame.minY < $0.frame.minY } ?? true)
+    }
+
     private func text(_ element: XCUIElement) -> String {
         element.value as? String ?? ""
     }
@@ -167,6 +176,34 @@ final class JobletUITests: XCTestCase {
         confirm.click()
         XCTAssertTrue(waitForGone(rowName("Paused Cleanup")))
         XCTAssertEqual(rowCount, 2)
+    }
+
+    func testAssignGroupThenRemoveReturnsToUngrouped() {
+        select("Nightly Backup")
+        element("group-menu").click()
+        let newGroup = app.menuItems["New Group…"]
+        XCTAssertTrue(newGroup.waitForExistence(timeout: timeout))
+        newGroup.click()
+        let field = app.sheets.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: timeout))
+        field.click()
+        field.typeText("Backups")
+        app.sheets.buttons["Add"].click()
+
+        let backups = groupHeader("Backups")
+        let ungrouped = groupHeader("Ungrouped")
+        XCTAssertTrue(backups.waitForExistence(timeout: timeout))
+        XCTAssertTrue(ungrouped.exists)
+        XCTAssertTrue(isListed(rowName("Nightly Backup"), below: backups, above: ungrouped))
+        XCTAssertTrue(isListed(rowName("Paused Cleanup"), below: ungrouped, above: nil))
+
+        element("group-menu").click()
+        let remove = app.menuItems["Remove from Group"]
+        XCTAssertTrue(remove.waitForExistence(timeout: timeout))
+        remove.click()
+        XCTAssertTrue(waitForGone(backups))
+        XCTAssertTrue(isListed(rowName("Nightly Backup"), below: ungrouped, above: nil))
+        XCTAssertEqual(rowCount, 3)
     }
 
     func testLaunchAtLoginToggleInSettings() {

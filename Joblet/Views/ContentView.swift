@@ -20,8 +20,16 @@ struct ContentView: View {
             filter.includes(job) && (query.isEmpty ||
                 job.name.localizedCaseInsensitiveContains(query) ||
                 job.label.localizedCaseInsensitiveContains(query) ||
-                job.command.localizedCaseInsensitiveContains(query))
+                job.command.localizedCaseInsensitiveContains(query) ||
+                job.group?.localizedCaseInsensitiveContains(query) == true)
         }
+    }
+
+    /// Named groups sorted by name, then ungrouped jobs (`name == nil`) last.
+    private var visibleSections: [(name: String?, jobs: [LaunchJob])] {
+        let grouped = Dictionary(grouping: visibleJobs, by: \.group)
+        let names = grouped.keys.compactMap { $0 }.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        return names.map { ($0, grouped[$0] ?? []) } + (grouped[nil].map { [(nil, $0)] } ?? [])
     }
 
     var body: some View {
@@ -136,11 +144,18 @@ struct ContentView: View {
             .padding(.bottom, 10)
 
             List(selection: $store.selectedID) {
-                ForEach(visibleJobs) { job in
-                    JobListRow(job: job) { enabled in
-                        request(enabled ? .enable : .disable, for: job)
+                ForEach(visibleSections, id: \.name) { section in
+                    Section {
+                        ForEach(section.jobs) { job in
+                            JobListRow(job: job) { enabled in
+                                request(enabled ? .enable : .disable, for: job)
+                            }
+                            .tag(job.id)
+                        }
+                    } header: {
+                        Text(section.name ?? "Ungrouped")
+                            .accessibilityIdentifier("group-section-header")
                     }
-                    .tag(job.id)
                 }
             }
             .listStyle(.sidebar)

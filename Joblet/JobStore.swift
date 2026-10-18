@@ -167,4 +167,21 @@ final class JobStore: ObservableObject {
             }
         }
     }
+
+    var groupNames: [String] {
+        Set(jobs.compactMap(\.group)).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+
+    func setGroup(_ job: LaunchJob, group: String?) async {
+        guard !isBusy else { return }
+        isBusy = true
+        errorMessage = nil
+        defer { isBusy = false }
+        do {
+            try await repository.setGroup(job, group: group)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        await reloadAfterMutation()
+    }
 }

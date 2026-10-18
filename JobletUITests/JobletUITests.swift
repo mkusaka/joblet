@@ -114,7 +114,7 @@ final class JobletUITests: XCTestCase {
 
     func testSaveDuringRefreshIsNotDropped() {
         app.terminate()
-        app.launchEnvironment["JOBLET_UI_TEST_LAUNCHCTL_DELAY_MS"] = "2000"
+        app.launchEnvironment["JOBLET_UI_TEST_LAUNCHCTL_DELAY_MS"] = "1000"
         app.launch()
         XCTAssertTrue(rowName("Nightly Backup").waitForExistence(timeout: timeout), "Fixture jobs did not load")
         select("Nightly Backup")

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>Joblet</title>
+        <link>https://github.com/mkusaka/joblet</link>
+        <description>Most recent changes with links to updates.</description>
+        <language>en</language>
+    <item>
+        <title>Version 0.0.3</title>
+        <pubDate>Sun, 18 Oct 2026 16:34:17 +0000</pubDate>
+        <sparkle:version>3</sparkle:version>
+        <sparkle:shortVersionString>0.0.3</sparkle:shortVersionString>
+        <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+        <enclosure url="https://github.com/mkusaka/joblet/releases/download/v0.0.3/Joblet.zip" sparkle:edSignature="MEI+w01YsTV9I9C+xHqzBTIzhO3uD1z2qLe3oBBoYWjXpUnMA9ngcCo63Lh6tLVhZwsMKyLlfE6QJM4IsLzMCw==" length="3128971" type="application/octet-stream"/>
+    </item>
+    </channel>
+</rss>

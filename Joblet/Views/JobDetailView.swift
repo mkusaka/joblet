@@ -199,10 +199,16 @@ struct JobDetailView: View {
                 Button {
                     setGroup(name)
                 } label: {
-                    if job.group == name { Label(name, systemImage: "checkmark") } else { Text(name) }
+                    if job.group == name {
+                        Label(name, systemImage: "checkmark")
+                    } else {
+                        Text(name)
+                    }
                 }
             }
-            if !store.groupNames.isEmpty { Divider() }
+            if !store.groupNames.isEmpty {
+                Divider()
+            }
             Button("New Group…") {
                 newGroupName = ""
                 isNamingGroup = true
@@ -222,11 +228,15 @@ struct JobDetailView: View {
     }
 
     private var runHelp: String {
-        if job.isRunning { return "This job is running" }
+        if job.isRunning {
+            return "This job is running"
+        }
         if job.runtime.phase == .unloaded || job.runtime.isEnabled == false {
             return "Enable the job before running it"
         }
-        if !job.canControl { return "Cannot run until the state can be verified" }
+        if !job.canControl {
+            return "Cannot run until the state can be verified"
+        }
         return "Run the registered command once"
     }
 
@@ -414,7 +424,9 @@ private struct JobOutputView: View {
                 Label(showsPlist ? "Plist" : "Logs", systemImage: showsPlist ? "doc.plaintext" : "text.alignleft")
                     .font(.callout.weight(.medium))
                 Spacer(minLength: 0)
-                if isLoading { ProgressView().controlSize(.small) }
+                if isLoading {
+                    ProgressView().controlSize(.small)
+                }
                 Button {
                     revision += 1
                 } label: {

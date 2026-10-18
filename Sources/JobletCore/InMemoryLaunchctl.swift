@@ -67,7 +67,9 @@ public actor InMemoryLaunchctl: LaunchctlExecuting {
     public func run(_ arguments: [String]) async throws -> CommandResult {
         history.append(arguments)
         let verb = arguments[0]
-        if let delay = delays[verb] { try? await Task.sleep(for: delay) }
+        if let delay = delays[verb] {
+            try? await Task.sleep(for: delay)
+        }
         if let remaining = failures[verb], remaining > 0 {
             failures[verb] = remaining - 1
             return CommandResult(exitCode: 5, stdout: "", stderr: "Injected \(verb) failure")
@@ -75,7 +77,9 @@ public actor InMemoryLaunchctl: LaunchctlExecuting {
         let label = arguments.last?.split(separator: "/").last.map(String.init) ?? ""
         switch verb {
         case "print-disabled":
-            if unknownDisabled { return CommandResult(exitCode: 0, stdout: "future output format", stderr: "") }
+            if unknownDisabled {
+                return CommandResult(exitCode: 0, stdout: "future output format", stderr: "")
+            }
             let entries = disabled.keys.sorted().map { "\"\($0)\" => \(disabled[$0]! ? "true" : "false")" }.joined(separator: "\n")
             return CommandResult(exitCode: 0, stdout: "disabled services = {\n\(entries)\n}\n", stderr: "")
         case "print":

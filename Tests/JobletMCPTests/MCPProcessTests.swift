@@ -11,8 +11,12 @@ final class MCPProcessTests: XCTestCase {
         var line = Data()
         while true {
             let byte = try XCTUnwrap(try handle.read(upToCount: 1), "stdout closed before a full line")
-            if byte.isEmpty { XCTFail("stdout closed"); return [:] }
-            if byte[0] == 10 { break }
+            if byte.isEmpty {
+                XCTFail("stdout closed"); return [:]
+            }
+            if byte[0] == 10 {
+                break
+            }
             line.append(byte)
         }
         return try XCTUnwrap(JSONSerialization.jsonObject(with: line) as? [String: Any])
@@ -27,7 +31,11 @@ final class MCPProcessTests: XCTestCase {
         process.standardOutput = output
         process.standardError = errors
         try process.run()
-        defer { if process.isRunning { process.terminate() } }
+        defer {
+            if process.isRunning {
+                process.terminate()
+            }
+        }
 
         // Send one request in two chunks: the server must reassemble it and reply before EOF.
         let first = Data(#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}"#.utf8) + Data([10])

@@ -117,7 +117,9 @@ enum JobFileIO {
 
     static func createPrivateLog(_ url: URL, uid: UInt32) throws {
         let descriptor = open(url.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600)
-        if descriptor >= 0 { _ = close(descriptor); return }
+        if descriptor >= 0 {
+            _ = close(descriptor); return
+        }
         guard errno == EEXIST else { throw posixError("Cannot create log file", url) }
         var info = stat()
         guard lstat(url.path, &info) == 0, info.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG),
@@ -133,13 +135,19 @@ enum JobFileIO {
         let descriptor = open(temporary.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600)
         guard descriptor >= 0 else { throw posixError("Cannot create temporary file", temporary) }
         var descriptorOpen = true
-        defer { if descriptorOpen { _ = close(descriptor) }; _ = unlink(temporary.path) }
+        defer {
+            if descriptorOpen {
+                _ = close(descriptor)
+            }; _ = unlink(temporary.path)
+        }
         try data.withUnsafeBytes { buffer in
             guard let address = buffer.baseAddress else { return }
             var written = 0
             while written < data.count {
                 let count = write(descriptor, address.advanced(by: written), data.count - written)
-                if count < 0, errno == EINTR { continue }
+                if count < 0, errno == EINTR {
+                    continue
+                }
                 guard count > 0 else { throw posixError("Cannot write file", temporary) }
                 written += count
             }
@@ -189,7 +197,9 @@ enum JobFileIO {
         let limit = min(maxBytes, 1_048_576)
         let descriptor = open(url.path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK)
         guard descriptor >= 0 else {
-            if errno == ENOENT { return "The log has not been created yet." }
+            if errno == ENOENT {
+                return "The log has not been created yet."
+            }
             throw posixError("Cannot open log", url)
         }
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
@@ -201,7 +211,9 @@ enum JobFileIO {
         let offset = max(Int64(0), Int64(info.st_size) - Int64(limit))
         try handle.seek(toOffset: UInt64(offset))
         let data = try handle.read(upToCount: limit) ?? Data()
-        if data.isEmpty { return "The log is empty." }
+        if data.isEmpty {
+            return "The log is empty."
+        }
         let prefix = offset > 0 ? "[Showing last \(limit) bytes]\n" : ""
         return prefix + String(decoding: data, as: UTF8.self)
     }
@@ -222,7 +234,9 @@ enum JobFileIO {
 
     private static func syncDirectory(_ url: URL) {
         let descriptor = open(url.path, O_RDONLY | O_NOFOLLOW)
-        if descriptor >= 0 { _ = fsync(descriptor); _ = close(descriptor) }
+        if descriptor >= 0 {
+            _ = fsync(descriptor); _ = close(descriptor)
+        }
     }
 
     private static func posixError(_ operation: String, _ url: URL) -> JobletError {

@@ -328,7 +328,9 @@ struct JobEditorView: View {
         Task {
             let succeeded = await store.save(draft, editing: jobToEdit)
             isSaving = false
-            if succeeded { dismiss() }
+            if succeeded {
+                dismiss()
+            }
         }
     }
 

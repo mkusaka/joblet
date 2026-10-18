@@ -110,7 +110,9 @@ final class JobStore: ObservableObject {
         defer { isBusy = false }
         do {
             try await repository.delete(job)
-            if selectedID == job.id { selectedID = nil }
+            if selectedID == job.id {
+                selectedID = nil
+            }
             await reloadAfterMutation()
             return true
         } catch {
@@ -162,7 +164,9 @@ final class JobStore: ObservableObject {
         if let selectedID, !jobs.contains(where: { $0.id == selectedID }) {
             self.selectedID = nil
         }
-        if isInitialLoad, selectedID == nil { selectedID = jobs.first?.id }
+        if isInitialLoad, selectedID == nil {
+            selectedID = jobs.first?.id
+        }
     }
 
     private func reloadAfterMutation() async {

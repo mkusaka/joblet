@@ -51,11 +51,15 @@ struct JobletMCPMain {
                 #endif
             }
             if count < 0 {
-                if errno == EINTR { continue }
+                if errno == EINTR {
+                    continue
+                }
                 FileHandle.standardError.write(Data("[joblet-mcp] stdin read failed\n".utf8))
                 exit(1)
             }
-            if count == 0 { break }
+            if count == 0 {
+                break
+            }
             for byte in readBuffer.prefix(count) {
                 if byte == 10 { // newline
                     if tooLarge {
@@ -66,8 +70,11 @@ struct JobletMCPMain {
                     currentLine.removeAll(keepingCapacity: true)
                     tooLarge = false
                 } else if !tooLarge {
-                    if currentLine.count < 262_144 { currentLine.append(byte) }
-                    else { currentLine.removeAll(keepingCapacity: false); tooLarge = true }
+                    if currentLine.count < 262_144 {
+                        currentLine.append(byte)
+                    } else {
+                        currentLine.removeAll(keepingCapacity: false); tooLarge = true
+                    }
                 }
             }
         }

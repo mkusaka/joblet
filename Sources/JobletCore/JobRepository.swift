@@ -56,7 +56,9 @@ public actor JobRepository {
         let table: DisabledTable?
         do { table = try await client.disabledTable() }
         catch { table = nil; warnings.append(error.localizedDescription) }
-        if table == nil { warnings.append("Cannot read launchctl's persistent enabled/disabled settings. Actions on jobs that cannot be verified are disabled.") }
+        if table == nil {
+            warnings.append("Cannot read launchctl's persistent enabled/disabled settings. Actions on jobs that cannot be verified are disabled.")
+        }
         var groups: [String: String] = [:]
         do { groups = try readGroups().groups }
         catch { warnings.append(error.localizedDescription) }
@@ -72,9 +74,15 @@ public actor JobRepository {
                 probe = RuntimeProbe(runtime: JobRuntime(detail: "Unsupported Label or Disabled format; actions are unavailable."), loadedPath: nil)
             }
             var reasons: [String] = []
-            if counts[document.label] != 1 { reasons.append("Multiple plists share this Label. Changes are disabled so another job is not affected.") }
-            if !file.revision.isSafeToMutate(uid: uid) { reasons.append("Cannot safely verify the plist owner, permissions or hard links.") }
-            if !loadedPathMatches(probe, file: file.url) { reasons.append("The plist path registered with launchd does not match this file.") }
+            if counts[document.label] != 1 {
+                reasons.append("Multiple plists share this Label. Changes are disabled so another job is not affected.")
+            }
+            if !file.revision.isSafeToMutate(uid: uid) {
+                reasons.append("Cannot safely verify the plist owner, permissions or hard links.")
+            }
+            if !loadedPathMatches(probe, file: file.url) {
+                reasons.append("The plist path registered with launchd does not match this file.")
+            }
             let safe = reasons.isEmpty && JobPlist.isSafeLabel(document.label) && document.hasValidDisabledValue
                 && probe.runtime.phase != .unknown && probe.runtime.isDisabled != nil
             if !reasons.isEmpty {
@@ -84,7 +92,9 @@ public actor JobRepository {
             var draft = document.draft
             // Editing preserves the persistent setting. Registration is a separate state:
             // an enabled-but-booted-out job must not silently become persistently disabled.
-            if let disabled = probe.runtime.isDisabled { draft?.enabled = !disabled }
+            if let disabled = probe.runtime.isDisabled {
+                draft?.enabled = !disabled
+            }
             var job = LaunchJob(label: document.label, name: document.name, command: document.command,
                                 scheduleDescription: document.scheduleDescription, schedule: document.schedule,
                                 plistURL: file.url, workingDirectory: document.workingDirectory,
@@ -164,9 +174,15 @@ public actor JobRepository {
         defer { mutationInProgress = false }
         let context = try fileContext(job, requireEditable: false)
         let original = try await currentProbe(context)
-        if !enabled { try requireStopped(original.runtime) }
-        if enabled, original.runtime.isEnabled == true { return }
-        if !enabled, original.runtime.phase == .unloaded, original.runtime.isDisabled == true { return }
+        if !enabled {
+            try requireStopped(original.runtime)
+        }
+        if enabled, original.runtime.isEnabled == true {
+            return
+        }
+        if !enabled, original.runtime.phase == .unloaded, original.runtime.isDisabled == true {
+            return
+        }
         do {
             if enabled {
                 try await client.checked(["enable", target(context.document.label)])
@@ -174,7 +190,9 @@ public actor JobRepository {
                 if original.runtime.phase == .unloaded {
                     try await client.checked(["bootstrap", client.domain, context.url.path])
                 }
-            } else { try await unloadForChange(context) }
+            } else {
+                try await unloadForChange(context)
+            }
         } catch {
             let originalError = error.localizedDescription
             let recovery = await restore(context, runtime: original.runtime, expected: context.revision)
@@ -244,7 +262,9 @@ public actor JobRepository {
 
     private func readGroups() throws -> (groups: [String: String], revision: FileRevision?) {
         var info = stat()
-        if lstat(groupsURL.path, &info) != 0, errno == ENOENT { return ([:], nil) }
+        if lstat(groupsURL.path, &info) != 0, errno == ENOENT {
+            return ([:], nil)
+        }
         try JobFileIO.validateDirectoryChain(dataDirectory, home: home, uid: uid, create: false, privateRoot: dataDirectory)
         let revision = try JobFileIO.read(groupsURL)
         guard let groups = try? JSONDecoder().decode([String: String].self, from: revision.data),
@@ -358,7 +378,9 @@ public actor JobRepository {
     }
 
     private func loadedPathMatches(_ probe: RuntimeProbe, file: URL) -> Bool {
-        if probe.runtime.phase == .unloaded { return true }
+        if probe.runtime.phase == .unloaded {
+            return true
+        }
         guard let path = probe.loadedPath, path.hasPrefix("/") else { return false }
         return URL(fileURLWithPath: path).standardizedFileURL.path == file.standardizedFileURL.path
     }
@@ -431,7 +453,9 @@ public actor JobRepository {
                 try await client.checked(["enable", target(context.document.label)])
                 try JobFileIO.verifyUnchanged(current.url, expected: current.revision)
                 try await client.checked(["bootstrap", client.domain, context.url.path])
-                if original.isDisabled == true { try await client.checked(["disable", target(context.document.label)]) }
+                if original.isDisabled == true {
+                    try await client.checked(["disable", target(context.document.label)])
+                }
             } else {
                 try await restoreOverride(label: context.document.label, original: original)
             }

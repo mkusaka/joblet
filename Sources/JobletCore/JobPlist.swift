@@ -40,9 +40,13 @@ enum JobPlist {
     }
 
     static func normalizedWorkingDirectory(_ value: String, home: URL) -> String {
-        let expanded: String = if value.isEmpty || value == "~" { home.path }
-        else if value.hasPrefix("~/") { home.appendingPathComponent(String(value.dropFirst(2))).path }
-        else { value }
+        let expanded: String = if value.isEmpty || value == "~" {
+            home.path
+        } else if value.hasPrefix("~/") {
+            home.appendingPathComponent(String(value.dropFirst(2))).path
+        } else {
+            value
+        }
         return URL(fileURLWithPath: expanded, isDirectory: true).standardizedFileURL.path
     }
 
@@ -89,7 +93,9 @@ enum JobPlist {
             "Program: \(program)\nProgramArguments: " + (arguments ?? []).map(shellQuoteForDisplay).joined(separator: " ")
         } else if let arguments, !arguments.isEmpty {
             arguments.map(shellQuoteForDisplay).joined(separator: " ")
-        } else { "(Cannot read Program / ProgramArguments)" }
+        } else {
+            "(Cannot read Program / ProgramArguments)"
+        }
         let schedule = parseSchedule(dictionary)
         let runAtLoad = strictBool(dictionary["RunAtLoad"])
         let disabled = strictBool(dictionary["Disabled"])
@@ -117,7 +123,9 @@ enum JobPlist {
             catch { draft = nil }
         }
         var description = schedule?.summary ?? "Custom launch conditions"
-        if runAtLoad == true { description += "; also runs when loaded" }
+        if runAtLoad == true {
+            description += "; also runs when loaded"
+        }
         return DecodedJobPlist(label: label, name: name, command: command, workingDirectory: working,
                                stdout: stdout, stderr: stderr, schedule: schedule,
                                scheduleDescription: description, disabled: disabled ?? false,
@@ -137,7 +145,9 @@ enum JobPlist {
         // Other launch conditions cannot be faithfully reduced to the simple editor.
         let extraTriggers = ["KeepAlive", "WatchPaths", "QueueDirectories", "StartOnMount", "Sockets", "MachServices", "LaunchEvents"]
         guard !extraTriggers.contains(where: { dictionary[$0] != nil }) else { return nil }
-        if interval != nil, calendar != nil { return nil }
+        if interval != nil, calendar != nil {
+            return nil
+        }
         if let interval {
             guard let seconds = strictInteger(interval), seconds >= 60, seconds <= 31_536_000, seconds % 60 == 0 else { return nil }
             return JobSchedule(kind: .interval, intervalMinutes: seconds / 60)
@@ -176,7 +186,9 @@ enum JobPlist {
     }
 
     private static func shellQuoteForDisplay(_ argument: String) -> String {
-        if !argument.isEmpty, argument.utf8.allSatisfy({ isAlphanumeric($0) || [45, 46, 47, 95, 58].contains($0) }) { return argument }
+        if !argument.isEmpty, argument.utf8.allSatisfy({ isAlphanumeric($0) || [45, 46, 47, 95, 58].contains($0) }) {
+            return argument
+        }
         return "'" + argument.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 }

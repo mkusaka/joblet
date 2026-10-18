@@ -34,8 +34,12 @@ final class JobletUITests: XCTestCase {
             var seen: [String] = []
             var sectionOf: [String: String] = [:]
             func visit(_ node: XCUIElementSnapshot) {
-                if node.identifier == "group-section-header" { seen.append(node.label) }
-                if node.identifier == "job-row-name", let name = node.value as? String { sectionOf[name] = seen.last }
+                if node.identifier == "group-section-header" {
+                    seen.append(node.label)
+                }
+                if node.identifier == "job-row-name", let name = node.value as? String {
+                    sectionOf[name] = seen.last
+                }
                 node.children.forEach(visit)
             }
             visit(root)

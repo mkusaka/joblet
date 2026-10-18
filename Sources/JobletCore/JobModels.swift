@@ -152,7 +152,9 @@ public struct JobRuntime: Sendable, Equatable {
     public var lastExitCode: Int?
     public var detail: String?
     public var isEnabled: Bool? {
-        if phase == .unloaded { return false }
+        if phase == .unloaded {
+            return false
+        }
         guard phase != .unknown, let isDisabled else { return nil }
         return !isDisabled
     }

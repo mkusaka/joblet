@@ -69,7 +69,9 @@ struct ProcessLaunchctl: LaunchctlExecuting {
         var timedOut = false
         if terminated.wait(timeout: .now() + 12) == .timedOut {
             timedOut = true
-            if process.isRunning { process.terminate() }
+            if process.isRunning {
+                process.terminate()
+            }
             if terminated.wait(timeout: .now() + 2) == .timedOut, process.isRunning {
                 // Only the launchctl process started above is terminated, never the job.
                 _ = kill(process.processIdentifier, SIGKILL)
@@ -105,7 +107,9 @@ private final class PipeCapture: @unchecked Sendable {
             while let chunk = try handle.read(upToCount: 8192), !chunk.isEmpty {
                 let available = max(0, Self.limit - collected.count)
                 collected.append(chunk.prefix(available))
-                if chunk.count > available { didTruncate = true }
+                if chunk.count > available {
+                    didTruncate = true
+                }
             }
         } catch { didTruncate = true }
         lock.lock()
@@ -194,12 +198,20 @@ struct LaunchctlClient {
         let interesting: Set = ["path", "state", "pid", "last exit code"]
         for line in result.stdout.components(separatedBy: .newlines) {
             let line = line.trimmingCharacters(in: .whitespaces)
-            if line.hasSuffix("= {") || line == "{" { depth += 1; continue }
-            if line == "}" || line == "};" { depth -= 1; if depth < 0 { malformed = true }; continue }
+            if line.hasSuffix("= {") || line == "{" {
+                depth += 1; continue
+            }
+            if line == "}" || line == "};" {
+                depth -= 1; if depth < 0 {
+                    malformed = true
+                }; continue
+            }
             guard depth == 1, let separator = line.range(of: " = ") else { continue }
             let key = String(line[..<separator.lowerBound])
             guard interesting.contains(key) else { continue }
-            if fields[key] != nil { malformed = true }
+            if fields[key] != nil {
+                malformed = true
+            }
             fields[key] = String(line[separator.upperBound...])
         }
         let path = fields["path"].flatMap { $0.hasPrefix("/") ? $0 : nil }
@@ -210,13 +222,23 @@ struct LaunchctlClient {
             return Int(String(number).trimmingCharacters(in: .whitespaces))
         }
         let state = fields["state"]
-        let phase: JobPhase = if !malformed, depth == 0, state == "running", pid != nil { .running }
-        else if !malformed, depth == 0, ["not running", "waiting", "exited"].contains(state ?? ""), pid == nil { .waiting }
-        else { .unknown }
+        let phase: JobPhase = if !malformed, depth == 0, state == "running", pid != nil {
+            .running
+        } else if !malformed, depth == 0, ["not running", "waiting", "exited"].contains(state ?? ""), pid == nil {
+            .waiting
+        } else {
+            .unknown
+        }
         var notes: [String] = []
-        if phase == .unknown { notes.append("Could not determine the run state from launchctl output.\n\(result.diagnostic)") }
-        if path == nil { notes.append("Cannot determine the plist path the job was loaded from.") }
-        if disabled == nil { notes.append("Cannot determine the persistent enabled/disabled setting.") }
+        if phase == .unknown {
+            notes.append("Could not determine the run state from launchctl output.\n\(result.diagnostic)")
+        }
+        if path == nil {
+            notes.append("Cannot determine the plist path the job was loaded from.")
+        }
+        if disabled == nil {
+            notes.append("Cannot determine the persistent enabled/disabled setting.")
+        }
         return RuntimeProbe(runtime: JobRuntime(phase: phase, isDisabled: disabled, pid: pid,
                                                 lastExitCode: exit, detail: notes.isEmpty ? nil : notes.joined(separator: "\n")), loadedPath: path)
     }

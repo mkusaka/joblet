@@ -77,7 +77,9 @@ struct ToolArguments {
 
     func string(_ key: String, required: Bool = false) throws -> String? {
         guard let value = values[key] else {
-            if required { throw MCPToolError("Missing required string: \(key)") }
+            if required {
+                throw MCPToolError("Missing required string: \(key)")
+            }
             return nil
         }
         guard let string = value as? String else { throw MCPToolError("\(key) must be a string") }
@@ -94,7 +96,9 @@ struct ToolArguments {
 
     func int(_ key: String, required: Bool = false) throws -> Int? {
         guard let value = values[key] else {
-            if required { throw MCPToolError("Missing required integer: \(key)") }
+            if required {
+                throw MCPToolError("Missing required integer: \(key)")
+            }
             return nil
         }
         guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
@@ -108,7 +112,9 @@ struct ToolArguments {
 
     func object(_ key: String, required: Bool = false) throws -> [String: Any]? {
         guard let value = values[key] else {
-            if required { throw MCPToolError("Missing required object: \(key)") }
+            if required {
+                throw MCPToolError("Missing required object: \(key)")
+            }
             return nil
         }
         guard let object = value as? [String: Any] else { throw MCPToolError("\(key) must be an object") }
@@ -231,12 +237,24 @@ public actor MCPToolRouter {
                                             allowed: ["name", "command", "working_directory", "schedule", "run_at_load", "enabled"])
             guard !changes.values.isEmpty else { throw MCPToolError("changes must contain at least one field") }
             guard var draft = job.draft else { throw MCPToolError("The job has no editable draft") }
-            if let name = try changes.string("name") { draft.name = name }
-            if let command = try changes.string("command") { draft.command = command }
-            if let working = try changes.string("working_directory") { draft.workingDirectory = working }
-            if let schedule = try changes.object("schedule") { draft.schedule = try Self.parseSchedule(schedule) }
-            if let runAtLoad = try changes.bool("run_at_load") { draft.runAtLoad = runAtLoad }
-            if let enabled = try changes.bool("enabled") { draft.enabled = enabled }
+            if let name = try changes.string("name") {
+                draft.name = name
+            }
+            if let command = try changes.string("command") {
+                draft.command = command
+            }
+            if let working = try changes.string("working_directory") {
+                draft.workingDirectory = working
+            }
+            if let schedule = try changes.object("schedule") {
+                draft.schedule = try Self.parseSchedule(schedule)
+            }
+            if let runAtLoad = try changes.bool("run_at_load") {
+                draft.runAtLoad = runAtLoad
+            }
+            if let enabled = try changes.bool("enabled") {
+                draft.enabled = enabled
+            }
             try draft.validate()
             try rateLimitMutation()
             try await service.update(job, draft: draft)
@@ -253,7 +271,11 @@ public actor MCPToolRouter {
             return ["label": job.label, "enabled_requested": enabled]
         case "set_job_group":
             let args = try ToolArguments(arguments, allowed: ["label", "group"])
-            let group: String? = if args.values["group"] is NSNull { nil } else { try args.string("group", required: true) }
+            let group: String? = if args.values["group"] is NSNull {
+                nil
+            } else {
+                try args.string("group", required: true)
+            }
             let job = try await mutationTarget(label: args.string("label", required: true)!, expected: nil, editable: false)
             try rateLimitMutation()
             try await service.setGroup(job, group: group)
@@ -340,7 +362,9 @@ public actor MCPToolRouter {
                                                "working_directory": draft.workingDirectory,
                                                "schedule": serializeSchedule(draft.schedule),
                                                "run_at_load": draft.runAtLoad, "enabled": draft.enabled] as [String: Any]
-        } else { value["editable_configuration"] = NSNull() }
+        } else {
+            value["editable_configuration"] = NSNull()
+        }
         return value
     }
 

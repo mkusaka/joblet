@@ -37,7 +37,9 @@ public actor MCPProtocolServer {
                 return encode(Self.failure(id, -32602, "params must be an object"))
             }
             params = object
-        } else { params = [:] }
+        } else {
+            params = [:]
+        }
 
         let meta = params["_meta"] as? [String: Any]
         let requested = meta?["io.modelcontextprotocol/protocolVersion"] as? String
@@ -88,7 +90,9 @@ public actor MCPProtocolServer {
                     return encode(Self.failure(id, -32602, "Tool arguments must be an object"))
                 }
                 arguments = object
-            } else { arguments = [:] }
+            } else {
+                arguments = [:]
+            }
             do {
                 let output = try await tools.call(name, arguments: arguments)
                 result = Self.toolResult(output, modern: modern, serverInfo: serverInfo)
@@ -138,7 +142,9 @@ public actor MCPProtocolServer {
     }
 
     private static func validID(_ value: Any?) -> Any? {
-        if let string = value as? String { return string }
+        if let string = value as? String {
+            return string
+        }
         if let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(), number.doubleValue.isFinite {
             return number
         }

@@ -79,7 +79,11 @@ struct ContentView: View {
             Text(pendingAction?.title ?? "Confirm Action"),
             isPresented: Binding(
                 get: { pendingAction != nil },
-                set: { if !$0 { pendingAction = nil } }
+                set: {
+                    if !$0 {
+                        pendingAction = nil
+                    }
+                }
             ),
             titleVisibility: .visible,
             presenting: pendingAction
@@ -95,7 +99,11 @@ struct ContentView: View {
             "The operation could not be completed",
             isPresented: Binding(
                 get: { editor == nil && store.errorMessage != nil },
-                set: { if !$0 { store.errorMessage = nil } }
+                set: {
+                    if !$0 {
+                        store.errorMessage = nil
+                    }
+                }
             )
         ) {
             Button("Close", role: .cancel) { store.errorMessage = nil }

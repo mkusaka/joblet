@@ -19,6 +19,10 @@ public actor JobRepository {
         home.appendingPathComponent("Library/Application Support/Joblet", isDirectory: true)
     }
 
+    private var groupsURL: URL {
+        dataDirectory.appendingPathComponent("groups.json")
+    }
+
     private var backupsDirectory: URL {
         dataDirectory.appendingPathComponent("Backups", isDirectory: true)
     }
@@ -53,6 +57,9 @@ public actor JobRepository {
         do { table = try await client.disabledTable() }
         catch { table = nil; warnings.append(error.localizedDescription) }
         if table == nil { warnings.append("Cannot read launchctl's persistent enabled/disabled settings. Actions on jobs that cannot be verified are disabled.") }
+        var groups: [String: String] = [:]
+        do { groups = try readGroups().groups }
+        catch { warnings.append(error.localizedDescription) }
         let counts = Dictionary(grouping: discovery.files, by: { $0.document.label }).mapValues(\.count)
         var jobs: [LaunchJob] = []
         for file in discovery.files {
@@ -85,6 +92,7 @@ public actor JobRepository {
                                 isManaged: document.isCanonical, canEdit: document.isCanonical && safe,
                                 canControl: safe, runtime: probe.runtime, draft: draft)
             job.revision = file.revision
+            job.group = groups[document.label]
             jobs.append(job)
         }
         jobs.sort {
@@ -207,6 +215,17 @@ public actor JobRepository {
             }
             throw JobletError("The job could not be deleted.\n\(originalError)\n\(recovery)")
         }
+        // The job is gone either way; a stale entry is pruned on the next group write.
+        try? mutateGroups { $0[context.document.label] = nil }
+    }
+
+    /// Sets or clears (`nil`) the job's group. Only groups.json changes; the plist and launchd are untouched.
+    public func setGroup(_ job: LaunchJob, group: String?) throws {
+        try beginMutation()
+        defer { mutationInProgress = false }
+        let name = try group.map(JobGroup.validatedName)
+        let label = try readContext(job).document.label
+        try mutateGroups { $0[label] = name }
     }
 
     public func readLog(for job: LaunchJob, stream: LogStream, maxBytes: Int = 65536) throws -> String {
@@ -221,6 +240,33 @@ public actor JobRepository {
 
     public func plistText(for job: LaunchJob) throws -> String {
         try JobPlist.xmlText(readContext(job).revision.data)
+    }
+
+    private func readGroups() throws -> (groups: [String: String], revision: FileRevision?) {
+        var info = stat()
+        if lstat(groupsURL.path, &info) != 0, errno == ENOENT { return ([:], nil) }
+        try JobFileIO.validateDirectoryChain(dataDirectory, home: home, uid: uid, create: false, privateRoot: dataDirectory)
+        let revision = try JobFileIO.read(groupsURL)
+        guard let groups = try? JSONDecoder().decode([String: String].self, from: revision.data),
+              groups.values.allSatisfy({ (try? JobGroup.validatedName($0)) == $0 })
+        else {
+            throw JobletError("Job groups could not be read and are not shown. Fix or remove \(groupsURL.path).")
+        }
+        return (groups, revision)
+    }
+
+    /// Read-modify-write that refuses to overwrite a concurrently changed or unreadable file,
+    /// and drops entries whose label no longer exists.
+    private func mutateGroups(_ change: (inout [String: String]) -> Void) throws {
+        let current = try readGroups()
+        let labels = try Set(discover().files.map(\.document.label))
+        var groups = current.groups.filter { labels.contains($0.key) }
+        change(&groups)
+        guard groups != current.groups else { return }
+        try JobFileIO.validateDirectoryChain(dataDirectory, home: home, uid: uid, create: true, privateRoot: dataDirectory)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try JobFileIO.atomicWrite(encoder.encode(groups), to: groupsURL, expecting: current.revision)
     }
 
     private func beginMutation() throws {

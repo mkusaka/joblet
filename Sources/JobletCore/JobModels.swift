@@ -119,6 +119,20 @@ public struct JobDraft: Equatable, Sendable {
     }
 }
 
+enum JobGroup {
+    static let maximumLength = 40
+
+    static func validatedName(_ raw: String) throws -> String {
+        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name.count <= maximumLength,
+              !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
+        else {
+            throw JobletError("Enter a group name of 1 to \(maximumLength) characters without control characters.")
+        }
+        return name
+    }
+}
+
 public enum JobPhase: String, Sendable {
     case running, waiting, unloaded, unknown
     public var title: String {
@@ -174,6 +188,8 @@ public struct LaunchJob: Identifiable, Sendable {
     public let canControl: Bool
     public var runtime: JobRuntime
     public let draft: JobDraft?
+    /// Stored in Joblet's own groups.json, never in the plist, so any job can be grouped.
+    public var group: String?
     var revision: FileRevision?
     /// Optimistic-concurrency token (not a secret) that changes whenever the plist file changes.
     public var revisionToken: String? {

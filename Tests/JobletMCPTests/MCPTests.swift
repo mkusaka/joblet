@@ -209,7 +209,7 @@ final class MCPTests: XCTestCase {
         }
         let readOnly = ["list_jobs", "get_job", "read_log"]
         let write = try await names(.init(allowWrite: true))
-        XCTAssertEqual(write, readOnly + ["create_job", "update_job", "set_job_enabled"])
+        XCTAssertEqual(write, readOnly + ["create_job", "update_job", "set_job_enabled", "set_job_group"])
         let run = try await names(.init(allowRun: true))
         XCTAssertEqual(run, readOnly + ["run_job"])
         let delete = try await names(.init(allowDelete: true))
@@ -246,6 +246,59 @@ final class MCPTests: XCTestCase {
         _ = try await request(hidden, 1, "initialize", ["protocolVersion": "2025-11-25"])
         let denied = try await callError(hidden, "run_job", ["label": label, "expected_revision": token])
         XCTAssertTrue(denied.contains("not found"), denied)
+    }
+
+    func testSetJobGroupFiltersListAndFollowsExternalRules() async throws {
+        let home = try MCPTemporaryHome()
+        let launchctl = InMemoryLaunchctl()
+        let external = "com.example.grouped"
+        let agents = home.url.appendingPathComponent("Library/LaunchAgents", isDirectory: true)
+        try FileManager.default.createDirectory(at: agents, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let file = agents.appendingPathComponent(external + ".plist")
+        try PropertyListSerialization.data(fromPropertyList: ["Label": external, "ProgramArguments": ["/bin/date"]], format: .xml, options: 0)
+            .write(to: file)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        await launchctl.register(external, path: file.path)
+        let repository = JobRepository(homeDirectory: home.url, runner: launchctl)
+        let server = MCPProtocolServer(router: MCPToolRouter(service: repository, permissions: .init(allowWrite: true, includeExternal: true)))
+        _ = try await request(server, 1, "initialize", ["protocolVersion": "2025-11-25"])
+        let created = try await call(server, "create_job", ["name": "First", "command": "date"])
+        let first = try XCTUnwrap(created["label"] as? String)
+        _ = try await call(server, "create_job", ["name": "Second", "command": "date"])
+        let before = try await call(server, "get_job", ["label": first])
+
+        let set = try await call(server, "set_job_group", ["label": first, "group": " Backups "])
+        XCTAssertEqual(set["group"] as? String, "Backups")
+        let after = try await call(server, "get_job", ["label": first])
+        XCTAssertEqual(after["group"] as? String, "Backups")
+        XCTAssertEqual(after["revision"] as? String, before["revision"] as? String)
+        let filtered = try await call(server, "list_jobs", ["group": "Backups"])
+        XCTAssertEqual(filtered["total"] as? Int, 1)
+        XCTAssertEqual((filtered["jobs"] as? [[String: Any]])?.first?["label"] as? String, first)
+        let all = try await call(server, "list_jobs", [:])
+        XCTAssertEqual(all["total"] as? Int, 3)
+
+        let invalid = try await callError(server, "set_job_group", ["label": first, "group": "  "])
+        XCTAssertTrue(invalid.contains("group name"), invalid)
+        let missing = try await callError(server, "set_job_group", ["label": first])
+        XCTAssertTrue(missing.contains("group"), missing)
+        let cleared = try await call(server, "set_job_group", ["label": first, "group": NSNull()])
+        XCTAssertTrue(cleared["group"] is NSNull)
+        let none = try await call(server, "list_jobs", ["group": "Backups"])
+        XCTAssertEqual(none["total"] as? Int, 0)
+
+        let externalDenied = try await callError(server, "set_job_group", ["label": external, "group": "Other"])
+        XCTAssertTrue(externalDenied.contains("Joblet-owned"), externalDenied)
+        let control = MCPProtocolServer(router: MCPToolRouter(service: repository, permissions: .init(allowWrite: true, includeExternal: true,
+                                                                                                      allowExternalControl: true)))
+        _ = try await request(control, 1, "initialize", ["protocolVersion": "2025-11-25"])
+        _ = try await call(control, "set_job_group", ["label": external, "group": "Other"])
+        let externalJob = try await call(control, "get_job", ["label": external])
+        XCTAssertEqual(externalJob["group"] as? String, "Other")
+        let hidden = MCPProtocolServer(router: MCPToolRouter(service: repository, permissions: .init(allowWrite: true)))
+        _ = try await request(hidden, 1, "initialize", ["protocolVersion": "2025-11-25"])
+        let notFound = try await callError(hidden, "set_job_group", ["label": external, "group": "Other"])
+        XCTAssertTrue(notFound.contains("not found"), notFound)
     }
 
     // Helpers: all protocol cases use serialized JSON-RPC, not calls to internal dispatch.
@@ -310,6 +363,7 @@ private actor StubService: JobletService {
     func setEnabled(_: LaunchJob, enabled _: Bool) async throws {}
     func runNow(_: LaunchJob) async throws {}
     func delete(_: LaunchJob) async throws {}
+    func setGroup(_: LaunchJob, group _: String?) async throws {}
     func readLog(for _: LaunchJob, stream _: LogStream, maxBytes _: Int) async throws -> String {
         "test"
     }

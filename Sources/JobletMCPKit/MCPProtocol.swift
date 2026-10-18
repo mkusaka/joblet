@@ -92,7 +92,7 @@ public actor MCPProtocolServer {
             do {
                 let output = try await tools.call(name, arguments: arguments)
                 result = Self.toolResult(output, modern: modern, serverInfo: serverInfo)
-                if ["create_job", "update_job", "set_job_enabled", "run_job", "delete_job"].contains(name) {
+                if ["create_job", "update_job", "set_job_enabled", "set_job_group", "run_job", "delete_job"].contains(name) {
                     Self.audit(name: name, succeeded: true)
                 }
             } catch {

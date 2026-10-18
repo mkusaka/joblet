@@ -359,7 +359,7 @@ jobs:
             git remote add origin "$REPO_URL"
           fi
 
-          cp appcast.xml "$WORK_DIR/"
+          cp "$GITHUB_WORKSPACE/appcast.xml" "$WORK_DIR/"
           cd "$WORK_DIR"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

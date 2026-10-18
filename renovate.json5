@@ -4,6 +4,15 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["config:best-practices"],
   platformAutomerge: false,
+  customManagers: [
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^\\.github/workflows/release\\.yml$/"],
+      matchStrings: ['SPARKLE_VERSION:\\s*"?(?<currentValue>[^"\\s]+)"?'],
+      depNameTemplate: "sparkle-project/Sparkle",
+      datasourceTemplate: "github-releases",
+    },
+  ],
   packageRules: [
     {
       description: "Automerge non-major mise tool updates after 7 days",
@@ -19,6 +28,15 @@
       groupName: "github-actions (non-major)",
       matchManagers: ["github-actions"],
       matchUpdateTypes: ["minor", "patch", "digest", "pinDigest"],
+      automerge: true,
+      automergeType: "pr",
+      minimumReleaseAge: "7 days",
+    },
+    {
+      description: "Automerge non-major Swift package updates after 7 days",
+      groupName: "swift packages (non-major)",
+      matchManagers: ["swift"],
+      matchUpdateTypes: ["minor", "patch"],
       automerge: true,
       automergeType: "pr",
       minimumReleaseAge: "7 days",

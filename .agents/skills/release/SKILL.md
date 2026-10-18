@@ -13,6 +13,7 @@ allowed-tools:
   - Glob
 metadata:
   short-description: Tag-driven release workflow for Joblet
+  internal: true
 ---
 
 # Joblet Release

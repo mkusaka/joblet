@@ -100,6 +100,6 @@ Mutations other than `set_job_group` need the current `expected_revision`, and d
 An agent skill for using it, [skills/joblet](skills/joblet/SKILL.md), can be installed with:
 
 ```bash
-npx skills add mkusaka/joblet --skill joblet      # current project
-npx skills add mkusaka/joblet --skill joblet -g   # all projects
+npx skills add mkusaka/joblet      # current project
+npx skills add mkusaka/joblet -g   # all projects
 ```

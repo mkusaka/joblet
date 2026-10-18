@@ -95,4 +95,11 @@ args = ["--allow-write", "--allow-run"]
 | `--include-external` | show jobs created by other apps |
 | `--allow-external-control` | enable/disable/run/group external jobs (needs `--include-external`) |
 
-Mutations other than `set_job_group` need the current `expected_revision`, and deletes need `confirm_label`. External jobs can never be edited or deleted. Details, tools and protocol notes: [docs/MCP.md](docs/MCP.md). An agent skill for using it is in [skills/joblet](skills/joblet/SKILL.md).
+Mutations other than `set_job_group` need the current `expected_revision`, and deletes need `confirm_label`. External jobs can never be edited or deleted. Details, tools and protocol notes: [docs/MCP.md](docs/MCP.md).
+
+An agent skill for using it, [skills/joblet](skills/joblet/SKILL.md), can be installed with:
+
+```bash
+npx skills add mkusaka/joblet --skill joblet      # current project
+npx skills add mkusaka/joblet --skill joblet -g   # all projects
+```

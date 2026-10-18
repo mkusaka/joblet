@@ -14,13 +14,9 @@ env:
   DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
 jobs:
   lint:
-    name: Lint (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: Lint
+    runs-on: macos-26
     permissions: {}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-26, macos-15]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

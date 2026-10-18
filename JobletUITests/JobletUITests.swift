@@ -25,13 +25,23 @@ final class JobletUITests: XCTestCase {
         app.staticTexts.matching(identifier: "job-row-name").matching(NSPredicate(format: "value == %@", name)).firstMatch
     }
 
-    private func groupHeader(_ name: String) -> XCUIElement {
-        app.staticTexts.matching(identifier: "group-section-header").matching(NSPredicate(format: "value == %@", name)).firstMatch
-    }
-
-    /// Sections are ordered by name with "Ungrouped" last, so a row belongs to the nearest header above it.
-    private func isListed(_ row: XCUIElement, below header: XCUIElement, above next: XCUIElement?) -> Bool {
-        row.frame.minY > header.frame.minY && (next.map { row.frame.minY < $0.frame.minY } ?? true)
+    /// Waits until the sidebar shows exactly `headers` in order and each job in `sections` sits under its header.
+    /// Reads one accessibility snapshot in tree order because `firstMatch` and `frame` don't resolve a section
+    /// header inserted at runtime. Headers expose their text as the label, rows as the value.
+    private func waitForSidebar(headers: [String], sections: [String: String]) -> Bool {
+        let predicate = NSPredicate { _, _ in
+            guard let root = try? self.app.snapshot() else { return false }
+            var seen: [String] = []
+            var sectionOf: [String: String] = [:]
+            func visit(_ node: XCUIElementSnapshot) {
+                if node.identifier == "group-section-header" { seen.append(node.label) }
+                if node.identifier == "job-row-name", let name = node.value as? String { sectionOf[name] = seen.last }
+                node.children.forEach(visit)
+            }
+            visit(root)
+            return seen == headers && sections.allSatisfy { sectionOf[$0.key] == $0.value }
+        }
+        return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: nil)], timeout: timeout) == .completed
     }
 
     private func text(_ element: XCUIElement) -> String {
@@ -206,19 +216,16 @@ final class JobletUITests: XCTestCase {
         field.typeText("Backups")
         app.sheets.buttons["Add"].click()
 
-        let backups = groupHeader("Backups")
-        let ungrouped = groupHeader("Ungrouped")
-        XCTAssertTrue(backups.waitForExistence(timeout: timeout))
-        XCTAssertTrue(ungrouped.exists)
-        XCTAssertTrue(isListed(rowName("Nightly Backup"), below: backups, above: ungrouped))
-        XCTAssertTrue(isListed(rowName("Paused Cleanup"), below: ungrouped, above: nil))
+        XCTAssertTrue(waitForSidebar(
+            headers: ["Backups", "Ungrouped"],
+            sections: ["Nightly Backup": "Backups", "Paused Cleanup": "Ungrouped"]
+        ))
 
         element("group-menu").click()
         let remove = app.menuItems["Remove from Group"]
         XCTAssertTrue(remove.waitForExistence(timeout: timeout))
         remove.click()
-        XCTAssertTrue(waitForGone(backups))
-        XCTAssertTrue(isListed(rowName("Nightly Backup"), below: ungrouped, above: nil))
+        XCTAssertTrue(waitForSidebar(headers: ["Ungrouped"], sections: ["Nightly Backup": "Ungrouped"]))
         XCTAssertEqual(rowCount, 3)
     }
 

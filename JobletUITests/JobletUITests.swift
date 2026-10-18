@@ -151,6 +151,17 @@ final class JobletUITests: XCTestCase {
         XCTAssertTrue(rowName("Renamed Backup").waitForExistence(timeout: timeout))
     }
 
+    func testFooterTimestampRefreshesNow() {
+        app.terminate()
+        app.launchEnvironment["JOBLET_UI_TEST_LAUNCHCTL_DELAY_MS"] = "1000"
+        app.launch()
+        let footer = element("footer-refresh-button")
+        XCTAssertTrue(footer.waitForExistence(timeout: timeout))
+        footer.click()
+        XCTAssertTrue(waitForGone(footer), "Clicking the timestamp did not start a refresh")
+        XCTAssertTrue(footer.waitForExistence(timeout: timeout))
+    }
+
     func testToggleEnableDisable() {
         select("Nightly Backup")
         let toggle = element("detail-toggle")

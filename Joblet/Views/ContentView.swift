@@ -201,8 +201,14 @@ struct ContentView: View {
                     ProgressView().controlSize(.mini)
                     Text("Working…")
                 } else if let refreshed = store.lastRefreshed {
-                    Image(systemName: "arrow.clockwise")
-                    Text("Checked \(refreshed.formatted(date: .omitted, time: .standard))")
+                    Button {
+                        Task { await store.refresh() }
+                    } label: {
+                        Label("Checked \(refreshed.formatted(date: .omitted, time: .standard))", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reload LaunchAgents and run states (⌘R)")
+                    .accessibilityIdentifier("footer-refresh-button")
                 } else {
                     Text("User LaunchAgents")
                 }

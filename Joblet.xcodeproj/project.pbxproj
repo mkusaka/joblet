@@ -87,7 +87,6 @@
 				7A62829E2F7AF9D3007CEAA5 /* Sources */,
 				7A62829F2F7AF9D3007CEAA5 /* Frameworks */,
 				7A6282A02F7AF9D3007CEAA5 /* Resources */,
-				A10000000000000000000006 /* Configure Sparkle Info.plist */,
 			);
 			buildRules = (
 			);
@@ -187,24 +186,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		A10000000000000000000006 /* Configure Sparkle Info.plist */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Configure Sparkle Info.plist";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "PLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\nif [ -f \"$PLIST\" ]; then\n    /usr/libexec/PlistBuddy -c \"Add :SUFeedURL string https://mkusaka.github.io/joblet/appcast.xml\" \"$PLIST\" 2>/dev/null || /usr/libexec/PlistBuddy -c \"Set :SUFeedURL https://mkusaka.github.io/joblet/appcast.xml\" \"$PLIST\"\n    /usr/libexec/PlistBuddy -c \"Add :SUPublicEDKey string k3iDdoME7CuJwteINJWaU/qt/O9OF6AENSloZfmlhdo=\" \"$PLIST\" 2>/dev/null || /usr/libexec/PlistBuddy -c \"Set :SUPublicEDKey k3iDdoME7CuJwteINJWaU/qt/O9OF6AENSloZfmlhdo=\" \"$PLIST\"\nfi\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		7A62829E2F7AF9D3007CEAA5 /* Sources */ = {
@@ -361,6 +342,7 @@
 				CURRENT_PROJECT_VERSION = 10000;
 								ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/Joblet-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Joblet;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -372,7 +354,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.mkusaka.Joblet;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				ENABLE_APP_SANDBOX = NO;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -389,6 +371,7 @@
 				CURRENT_PROJECT_VERSION = 10000;
 								ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/Joblet-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Joblet;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -400,7 +383,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.mkusaka.Joblet;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				ENABLE_APP_SANDBOX = NO;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};

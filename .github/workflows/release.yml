@@ -169,6 +169,9 @@ jobs:
             echo "::error::Expected CFBundleVersion=$BUILD_VERSION, got $ACTUAL_BUILD_VERSION"
             exit 1
           fi
+
+          # Without these keys the shipped app can never receive Sparkle updates.
+          /usr/libexec/PlistBuddy -c 'Print :SUFeedURL' -c 'Print :SUPublicEDKey' "$PLIST"
       - name: Bundle and sign MCP helper
         run: |
           swift build --configuration release --product joblet-mcp --arch arm64 --arch x86_64

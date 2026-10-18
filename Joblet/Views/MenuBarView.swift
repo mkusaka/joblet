@@ -33,20 +33,20 @@ struct MenuBarView: View {
                 Button {
                     Task { await store.refresh() }
                 } label: {
-                    if store.isBusy {
+                    if store.isBusy || store.isRefreshing {
                         ProgressView().controlSize(.small)
                     } else {
                         Label("Refresh", systemImage: "arrow.clockwise").labelStyle(.iconOnly)
                     }
                 }
                 .buttonStyle(.plain)
-                .disabled(store.isBusy)
+                .disabled(store.isBusy || store.isRefreshing)
                 .help("Refresh")
             }
 
             Divider()
 
-            if store.isBusy && store.jobs.isEmpty {
+            if store.isBusy || store.isRefreshing, store.jobs.isEmpty {
                 Text("Loading jobs…")
                     .font(.callout)
                     .foregroundStyle(.secondary)

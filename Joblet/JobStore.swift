@@ -8,12 +8,17 @@ final class JobStore: ObservableObject {
     @Published var jobs: [LaunchJob] = []
     @Published var warnings: [String] = []
     @Published var selectedID: String?
+    /// A user mutation is in flight. Gates user actions.
     @Published var isBusy = false
+    /// A read-only list reload is in flight. Never gates user actions.
+    @Published private(set) var isRefreshing = false
     @Published var errorMessage: String?
     @Published var lastRefreshed: Date?
 
     private let repository: JobRepository
     private var prepare: (() async -> Void)?
+    /// Bumped whenever a mutation reloads, so an older refresh snapshot is discarded.
+    private var mutationGeneration = 0
 
     /// `prepare` runs once before the first load (used to seed fixtures in UI-test mode).
     init(repository: JobRepository = JobRepository(), prepare: (() async -> Void)? = nil) {
@@ -26,16 +31,22 @@ final class JobStore: ObservableObject {
     }
 
     func refresh() async {
-        guard !isBusy else { return }
-        isBusy = true
-        defer { isBusy = false }
+        guard !isRefreshing, !isBusy else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
         if let prepare {
             self.prepare = nil
+            isBusy = true
             await prepare()
+            isBusy = false
         }
+        let generation = mutationGeneration
         do {
-            try await reload()
+            let snapshot = try await repository.listJobs()
+            guard generation == mutationGeneration, !isBusy else { return }
+            apply(snapshot)
         } catch {
+            guard generation == mutationGeneration, !isBusy else { return }
             errorMessage = "Could not refresh the job list.\n\(error.localizedDescription)"
         }
     }
@@ -143,9 +154,8 @@ final class JobStore: ObservableObject {
         }
     }
 
-    private func reload() async throws {
+    private func apply(_ snapshot: JobSnapshot) {
         let isInitialLoad = lastRefreshed == nil
-        let snapshot = try await repository.listJobs()
         jobs = snapshot.jobs
         warnings = snapshot.warnings
         lastRefreshed = Date()
@@ -156,8 +166,9 @@ final class JobStore: ObservableObject {
     }
 
     private func reloadAfterMutation() async {
+        mutationGeneration += 1
         do {
-            try await reload()
+            try await apply(repository.listJobs())
         } catch {
             let explanation = "Could not reload the state after the operation. Refresh to check.\n\(error.localizedDescription)"
             if let previousError = errorMessage {

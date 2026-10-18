@@ -121,6 +121,22 @@ final class JobletUITests: XCTestCase {
         XCTAssertTrue(waitForText(element("detail-command"), "echo renamed"))
     }
 
+    func testSaveDuringRefreshIsNotDropped() {
+        app.terminate()
+        app.launchEnvironment["JOBLET_UI_TEST_LAUNCHCTL_DELAY_MS"] = "1000"
+        app.launch()
+        XCTAssertTrue(rowName("Nightly Backup").waitForExistence(timeout: timeout), "Fixture jobs did not load")
+        select("Nightly Backup")
+        element("edit-button").click()
+        let nameField = element("editor-name")
+        XCTAssertTrue(nameField.waitForExistence(timeout: timeout))
+        replaceText(in: nameField, with: "Renamed Backup")
+        app.typeKey("r", modifierFlags: .command)
+        element("editor-save").click()
+        XCTAssertTrue(waitForGone(element("editor-save")), "Save was dropped while the job list was refreshing")
+        XCTAssertTrue(rowName("Renamed Backup").waitForExistence(timeout: timeout))
+    }
+
     func testToggleEnableDisable() {
         select("Nightly Backup")
         let toggle = element("detail-toggle")

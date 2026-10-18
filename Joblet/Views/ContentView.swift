@@ -66,7 +66,7 @@ struct ContentView: View {
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .disabled(store.isBusy)
+                .disabled(store.isBusy || store.isRefreshing)
                 .help("Reload LaunchAgents and run states (⌘R)")
                 .accessibilityIdentifier("refresh-button")
             }
@@ -161,7 +161,7 @@ struct ContentView: View {
             .listStyle(.sidebar)
             .accessibilityIdentifier("job-list")
             .overlay {
-                if visibleJobs.isEmpty, !store.isBusy {
+                if visibleJobs.isEmpty, !store.isBusy, !store.isRefreshing {
                     VStack(spacing: 8) {
                         Image(systemName: searchText.isEmpty ? "tray" : "magnifyingglass")
                             .font(.title2)
@@ -189,7 +189,7 @@ struct ContentView: View {
             .padding(.horizontal, 14)
             .padding(.top, 10)
             HStack(spacing: 6) {
-                if store.isBusy {
+                if store.isBusy || store.isRefreshing {
                     ProgressView().controlSize(.mini)
                     Text("Working…")
                 } else if let refreshed = store.lastRefreshed {
@@ -232,7 +232,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var emptyDetail: some View {
-        if store.isBusy, store.jobs.isEmpty {
+        if store.isBusy || store.isRefreshing, store.jobs.isEmpty {
             ProgressView("Loading jobs…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if store.jobs.isEmpty {

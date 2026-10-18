@@ -20,6 +20,9 @@ enum AppEnvironment {
         let repository = JobRepository(homeDirectory: home, runner: launchctl)
         return JobStore(repository: repository) {
             await seedFixtures(repository: repository, launchctl: launchctl, home: home)
+            if let milliseconds = Int(ProcessInfo.processInfo.environment["JOBLET_UI_TEST_LAUNCHCTL_DELAY_MS"] ?? "") {
+                await launchctl.delay("print-disabled", by: .milliseconds(milliseconds))
+            }
         }
     }
 

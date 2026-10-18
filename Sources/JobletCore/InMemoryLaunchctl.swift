@@ -17,6 +17,7 @@ public actor InMemoryLaunchctl: LaunchctlExecuting {
     private var disabled: [String: Bool] = [:]
     private var history: [[String]] = []
     private var failures: [String: Int] = [:]
+    private var delays: [String: Duration] = [:]
     private var startOnNextDisable = false
     private var unknownDisabled = false
 
@@ -32,6 +33,11 @@ public actor InMemoryLaunchctl: LaunchctlExecuting {
 
     public func failNext(_ verb: String, count: Int = 1) {
         failures[verb] = count
+    }
+
+    /// Suspends (without blocking the actor) before answering `verb`, to simulate a slow launchctl.
+    public func delay(_ verb: String, by duration: Duration) {
+        delays[verb] = duration
     }
 
     public func raceStartOnDisable() {
@@ -61,6 +67,7 @@ public actor InMemoryLaunchctl: LaunchctlExecuting {
     public func run(_ arguments: [String]) async throws -> CommandResult {
         history.append(arguments)
         let verb = arguments[0]
+        if let delay = delays[verb] { try? await Task.sleep(for: delay) }
         if let remaining = failures[verb], remaining > 0 {
             failures[verb] = remaining - 1
             return CommandResult(exitCode: 5, stdout: "", stderr: "Injected \(verb) failure")

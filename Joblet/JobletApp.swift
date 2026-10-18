@@ -43,7 +43,7 @@ struct JobletApp: App {
                     Task { await store.refresh() }
                 }
                 .keyboardShortcut("r", modifiers: .command)
-                .disabled(store.isBusy)
+                .disabled(store.isBusy || store.isRefreshing)
             }
         }
 

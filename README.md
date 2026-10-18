@@ -10,6 +10,7 @@ Joblet's only third-party dependency is [Sparkle](https://sparkle-project.org) f
 
 - List, search and filter jobs (all / created by Joblet / existing), with running / waiting / not loaded / unknown state.
 - Create jobs with an interval, daily, weekly or manual-only schedule; edit and delete jobs created by Joblet.
+- Organize any job, including existing LaunchAgents, into named groups shown as sidebar sections. Groups are stored in `~/Library/Application Support/Joblet/groups.json`; plists are never changed.
 - Enable, disable and run now. Read the tail of stdout/stderr and the plist (show or copy).
 - Menu bar extra with job status and next run.
 - Optional launch at login (Settings), using macOS Login Items.
@@ -88,11 +89,11 @@ args = ["--allow-write", "--allow-run"]
 | Flag | Enables |
 | --- | --- |
 | *(none)* | `list_jobs`, `get_job`, `read_log` (jobs created by Joblet only) |
-| `--allow-write` | `create_job`, `update_job`, `set_job_enabled` |
+| `--allow-write` | `create_job`, `update_job`, `set_job_enabled`, `set_job_group` |
 | `--allow-run` | `run_job` |
 | `--allow-delete` | `delete_job` |
 | `--include-external` | show jobs created by other apps |
-| `--allow-external-control` | enable/disable/run external jobs (needs `--include-external`) |
+| `--allow-external-control` | enable/disable/run/group external jobs (needs `--include-external`) |
 
 Mutations need the current `expected_revision`, and deletes need `confirm_label`. External jobs can never be edited or deleted. Details, tools and protocol notes: [docs/MCP.md](docs/MCP.md).
 

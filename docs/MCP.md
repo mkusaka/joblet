@@ -46,11 +46,11 @@ Default: read-only, and only jobs created by Joblet (`local.joblet.<uuid>` label
 | Flag | Adds |
 | --- | --- |
 | *(none)* | `list_jobs`, `get_job`, `read_log` |
-| `--allow-write` | `create_job`, `update_job`, `set_job_enabled` |
+| `--allow-write` | `create_job`, `update_job`, `set_job_enabled`, `set_job_group` |
 | `--allow-run` | `run_job` |
 | `--allow-delete` | `delete_job` (plist is backed up first; logs are kept) |
 | `--include-external` | Show, read and read logs of jobs created by other apps |
-| `--allow-external-control` | With `--include-external` and the matching `--allow-write` / `--allow-run`: enable, disable and run external jobs |
+| `--allow-external-control` | With `--include-external` and the matching `--allow-write` / `--allow-run`: enable, disable, run and group external jobs |
 
 External jobs can never be edited or deleted, with any flag. Every repository safety check still applies (running jobs are never modified, stale plists, duplicate labels, unsafe ownership and so on).
 
@@ -60,16 +60,17 @@ Write access is as powerful as shell access as you: `create_job` takes an arbitr
 
 | Tool | Arguments | Result |
 | --- | --- | --- |
-| `list_jobs` | none | jobs with label, name, schedule, phase, enabled, pid, last exit code, `revision`; warnings only with `--include-external` |
+| `list_jobs` | optional `group` (exact name) | jobs with label, name, schedule, `group` (or null), phase, enabled, pid, last exit code, `revision`; warnings only with `--include-external` |
 | `get_job` | `label` | the above plus command, working directory, editable configuration, plist and log paths |
 | `read_log` | `label`, `stream` (`stdout`/`stderr`), `max_bytes` (default 16384, max 65536) | tail of the log |
 | `create_job` | `name`, `command`, optional `schedule`, `working_directory`, `run_at_load`, `enabled` | new label. Defaults: disabled, manual schedule, no run at load |
 | `update_job` | `label`, `expected_revision`, `changes` | patch; omitted fields are kept, `schedule` is replaced whole |
 | `set_job_enabled` | `label`, `expected_revision`, `enabled` | enable or disable |
+| `set_job_group` | `label`, `group` (1 to 40 characters, or `null` to remove) | sets or clears the job's group in Joblet's `groups.json`; the plist and launchd are untouched |
 | `run_job` | `label`, `expected_revision` | requests a run (`kickstart -p`) and does not wait for completion |
 | `delete_job` | `label`, `expected_revision`, `confirm_label` (must equal `label`) | removes the job, keeps a backup and logs |
 
-Mutations require `expected_revision`, the `revision` from a fresh `get_job` or `list_jobs`. It changes whenever the plist file changes; a stale value is rejected. It is a concurrency token, not a secret. Labels must match exactly, and a duplicated label is an error rather than a guess.
+Mutations require `expected_revision`, the `revision` from a fresh `get_job` or `list_jobs`. It changes whenever the plist file changes; a stale value is rejected. It is a concurrency token, not a secret. `set_job_group` is the exception: it never changes the plist, so the token would not protect anything, and concurrent writes to `groups.json` are refused instead. Labels must match exactly, and a duplicated label is an error rather than a guess.
 
 Schedules: `{"kind":"manual"}`, `{"kind":"interval","interval_minutes":10}`, `{"kind":"daily","hour":9,"minute":0}`, `{"kind":"weekly","weekday":1,"hour":9,"minute":0}` (0 = Sunday, local time). Unrelated fields and wrongly typed values are errors.
 

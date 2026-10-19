@@ -63,9 +63,12 @@ Schedules use local time:
 {"kind": "interval", "interval_minutes": 10}
 {"kind": "daily", "hour": 9, "minute": 0}
 {"kind": "weekly", "weekday": 1, "hour": 9, "minute": 0}
+{"kind": "once", "date": "2026-10-20T09:00"}
 ```
 
-`weekday` 0 is Sunday. `create_job` defaults to disabled, manual schedule and no
+`weekday` 0 is Sunday. A `once` date must be in the future; the job disables
+and unregisters itself after it runs (`once_done: true`), and the run is missed
+if the Mac is off at that time. `next_run_estimate` is an estimate, not a promise. `create_job` defaults to disabled, manual schedule and no
 run at load; set `enabled` and `schedule` explicitly when the user wants it to
 run.
 

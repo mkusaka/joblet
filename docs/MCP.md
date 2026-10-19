@@ -60,7 +60,7 @@ Write access is as powerful as shell access as you: `create_job` takes an arbitr
 
 | Tool | Arguments | Result |
 | --- | --- | --- |
-| `list_jobs` | optional `group` (exact name) | jobs with label, name, schedule, `group` (or null), phase, enabled, pid, last exit code, `revision`; warnings only with `--include-external` |
+| `list_jobs` | optional `group` (exact name) | jobs with label, name, schedule, `group` (or null), phase, enabled, pid, last exit code, `next_run_estimate`, `once_done`, `revision`; warnings only with `--include-external` |
 | `get_job` | `label` | the above plus command, working directory, editable configuration, plist and log paths |
 | `read_log` | `label`, `stream` (`stdout`/`stderr`), `max_bytes` (default 16384, max 65536) | tail of the log |
 | `create_job` | `name`, `command`, optional `schedule`, `working_directory`, `run_at_load`, `enabled` | new label. Defaults: disabled, manual schedule, no run at load |
@@ -72,7 +72,11 @@ Write access is as powerful as shell access as you: `create_job` takes an arbitr
 
 Mutations require `expected_revision`, the `revision` from a fresh `get_job` or `list_jobs`. It changes whenever the plist file changes; a stale value is rejected. It is a concurrency token, not a secret. `set_job_group` is the exception: it never changes the plist, so the token would not protect anything, and concurrent writes to `groups.json` are refused instead. Labels must match exactly, and a duplicated label is an error rather than a guess.
 
-Schedules: `{"kind":"manual"}`, `{"kind":"interval","interval_minutes":10}`, `{"kind":"daily","hour":9,"minute":0}`, `{"kind":"weekly","weekday":1,"hour":9,"minute":0}` (0 = Sunday, local time). Unrelated fields and wrongly typed values are errors.
+Schedules: `{"kind":"manual"}`, `{"kind":"interval","interval_minutes":10}`, `{"kind":"daily","hour":9,"minute":0}`, `{"kind":"weekly","weekday":1,"hour":9,"minute":0}` (0 = Sunday, local time), `{"kind":"once","date":"2026-10-20T09:00"}`. Unrelated fields and wrongly typed values are errors.
+
+A `once` date is this Mac's local time, formatted exactly `YYYY-MM-DDTHH:MM`, and must be in the future when the job is created, updated or enabled. After it runs, the job disables and unregisters itself; `get_job` then reports `phase: "unloaded"` and `once_done: true`. If the Mac is asleep at that time it runs on wake; if the Mac is off, the run is missed. See the README for how the wrapper works.
+
+`next_run_estimate` is an ISO 8601 time with the local offset, or `null`. It is an estimate, never a guarantee, and is `null` unless the job is enabled and loaded. Calendar and `once` jobs derive it from the rule. Interval jobs use the newest write to their stdout/stderr log plus the interval, so it is `null` until the job has written to its log, and it can be in the past when a run is overdue (for example after sleep).
 
 ## Protocol
 

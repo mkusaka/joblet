@@ -9,7 +9,7 @@ Quit the app and your jobs keep running, because macOS runs them.
 ## Features
 
 - List, search and filter jobs (all / created by Joblet / existing), with running / waiting / not loaded / unknown state.
-- Create jobs with an interval, daily, weekly or manual-only schedule; edit and delete jobs created by Joblet.
+- Create jobs with an interval, daily, weekly, one-time or manual-only schedule; edit and delete jobs created by Joblet.
 - Organize any job, including existing LaunchAgents, into named groups shown as sidebar sections. Groups are stored in `~/Library/Application Support/Joblet/groups.json`; plists are never changed.
 - Enable, disable and run now. Read the tail of stdout/stderr and the plist (show or copy).
 - Menu bar extra with job status and next run.
@@ -49,6 +49,7 @@ The build is for your own Mac (ad-hoc signed, App Sandbox off, no notarization).
 | Every N minutes | `StartInterval = N * 60` |
 | Daily at HH:mm | `StartCalendarInterval` with `Hour`, `Minute` |
 | Weekly | the above plus `Weekday` (0 = Sunday) |
+| Once at a date and time | `StartCalendarInterval` with `Month`, `Day`, `Hour`, `Minute`, plus a wrapper that removes the job after it runs |
 | Manual only | no time trigger |
 | Also run when loaded | `RunAtLoad = true` |
 
@@ -57,7 +58,22 @@ The command runs through `/bin/zsh -c` with an explicit `PATH` (`/opt/homebrew/b
 - Enable is `launchctl enable` plus `bootstrap` when needed. Disable is `disable` plus `bootout`.
 - Run now is `kickstart -p`; Joblet never force-kills a job (`-k`).
 - Calendar jobs missed during sleep run on wake; nothing runs while the Mac is off. Interval jobs are not guaranteed to run during sleep.
-- The next-run time shown is derived from the calendar rule and is an estimate. Interval jobs show none.
+- The next-run time shown is an estimate. Calendar jobs derive it from the rule. launchd does not report when an interval job last ran, so Joblet uses the newest write to the job's stdout/stderr log plus the interval, shows "due now" when that time has passed (for example after sleep), and shows nothing for a disabled job or one that has never written to its log.
+
+### One-time jobs
+
+launchd has no year field, so a one-time job runs through a fixed wrapper instead of your command directly:
+
+```
+/bin/zsh -c '<wrapper>' joblet-once <YYYY-MM-DDTHH:MM> <your command>
+```
+
+The wrapper runs your command in a child `/bin/zsh -c`, logs its exit status to stdout, then runs `launchctl disable` and `launchctl bootout` on its own label, so it neither fires again in this session nor loads at the next login. Your command is passed as a separate argument and never pasted into the wrapper text. If the job fires in a different year than its date, the wrapper skips the command and only removes itself.
+
+- The date must be in the future when you save or enable the job. A job that has run shows **Done**; to run it again, edit it and choose a new date.
+- If the Mac is asleep at that time, the job runs on wake. If the Mac is off, the run is missed, and Joblet points that out.
+- Run now on a pending one-time job runs it and removes it, the same as the scheduled run.
+- "Also run when loaded" is not available for one-time jobs, because the job would run and remove itself as soon as it is loaded.
 
 Created jobs get the label `local.joblet.<UUID>` (not editable). Logs live under `~/Library/Application Support/Joblet/Logs/<label>/`, and a backup of the previous plist is kept there on every edit or delete.
 

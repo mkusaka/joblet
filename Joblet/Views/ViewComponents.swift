@@ -247,3 +247,8 @@ func copyJobletText(_ text: String) {
 func calendarEstimateText(_ date: Date) -> String {
     date.formatted(.dateTime.month(.twoDigits).day(.twoDigits).weekday(.abbreviated).hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
 }
+
+/// An estimate that has already passed (for example, delayed by sleep) is shown as due, never as a past time.
+func runEstimateText(_ date: Date) -> String {
+    date <= Date() ? "due now" : calendarEstimateText(date)
+}

@@ -346,7 +346,14 @@ public actor MCPToolRouter {
          "phase": job.runtime.phase.rawValue, "enabled": job.runtime.isEnabled as Any? ?? NSNull(),
          "pid": job.runtime.pid as Any? ?? NSNull(),
          "last_exit_code": job.runtime.lastExitCode as Any? ?? NSNull(),
+         "next_run_estimate": job.nextRunEstimate().map(localISO8601) as Any? ?? NSNull(),
          "revision": job.revisionToken as Any? ?? NSNull()]
+    }
+
+    private static func localISO8601(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.timeZone = .current
+        return formatter.string(from: date)
     }
 
     private static func detail(_ job: LaunchJob) -> [String: Any] {

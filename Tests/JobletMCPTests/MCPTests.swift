@@ -114,6 +114,26 @@ final class MCPTests: XCTestCase {
         XCTAssertTrue(runningError.contains("running"))
     }
 
+    func testNextRunEstimateIsNullUntilAnIntervalJobHasLoggedThenLocalISO8601() async throws {
+        let home = try MCPTemporaryHome()
+        let repository = JobRepository(homeDirectory: home.url, runner: InMemoryLaunchctl())
+        let server = MCPProtocolServer(router: MCPToolRouter(service: repository, permissions: .init(allowWrite: true)))
+        _ = try await request(server, 1, "initialize", ["protocolVersion": "2025-11-25"])
+        let created = try await call(server, "create_job", ["name": "Every 10", "command": "date", "enabled": true,
+                                                            "schedule": ["kind": "interval", "interval_minutes": 10]])
+        let label = try XCTUnwrap(created["label"] as? String)
+        let fresh = try await call(server, "get_job", ["label": label])
+        XCTAssertTrue(fresh["next_run_estimate"] is NSNull)
+        let lastRun = Date(timeIntervalSince1970: 1_800_000_000)
+        let stdout = try XCTUnwrap(fresh["stdout_path"] as? String)
+        try Data("ran\n".utf8).write(to: URL(fileURLWithPath: stdout))
+        try FileManager.default.setAttributes([.modificationDate: lastRun], ofItemAtPath: stdout)
+        let listed = try await call(server, "list_jobs", [:])
+        let job = try XCTUnwrap((listed["jobs"] as? [[String: Any]])?.first)
+        let estimate = try XCTUnwrap(job["next_run_estimate"] as? String)
+        XCTAssertEqual(ISO8601DateFormatter().date(from: estimate), lastRun.addingTimeInterval(600))
+    }
+
     func testSuccessfulDeleteRetainsBackupAndLogs() async throws {
         let home = try MCPTemporaryHome()
         let repository = JobRepository(homeDirectory: home.url, runner: InMemoryLaunchctl())

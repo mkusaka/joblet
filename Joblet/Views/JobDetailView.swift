@@ -277,9 +277,22 @@ struct JobDetailView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else if job.schedule?.kind == .interval {
-                Text("The next run of an interval job is not shown. Time elapsed during sleep is not guaranteed to run.")
-                    .font(.caption)
+                if let nextDate = job.nextRunEstimate() {
+                    HStack(spacing: 7) {
+                        Image(systemName: "clock")
+                        Text("Next run per settings (estimate): \(runEstimateText(nextDate))")
+                            .accessibilityIdentifier("detail-next-run")
+                    }
+                    .font(.callout)
                     .foregroundStyle(.secondary)
+                    Text("launchd does not report interval run times, so this is the last log write plus the interval. Sleep or re-enabling the job shifts the actual start.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("The next run is estimated once the job is enabled and has written to its log. Time elapsed during sleep is not guaranteed to run.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if job.draft?.runAtLoad == true {

@@ -135,10 +135,10 @@ struct MenuBarView: View {
     }
 
     private func nextRunText(_ job: LaunchJob) -> String {
-        guard job.runtime.isEnabled == true, let next = job.schedule?.nextCalendarRun() else {
+        guard let next = job.nextRunEstimate() else {
             return job.scheduleDescription
         }
-        return "Next: \(calendarEstimateText(next))"
+        return "Next (estimate): \(runEstimateText(next))"
     }
 
     private func showMainWindow() {

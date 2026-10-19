@@ -1,7 +1,7 @@
 import Foundation
 
 public enum ScheduleKind: String, CaseIterable, Identifiable, Codable, Sendable {
-    case interval, daily, weekly, manual
+    case interval, daily, weekly, once, manual
     public var id: String {
         rawValue
     }
@@ -11,6 +11,7 @@ public enum ScheduleKind: String, CaseIterable, Identifiable, Codable, Sendable 
         case .interval: "Interval"
         case .daily: "Daily"
         case .weekly: "Weekly"
+        case .once: "Once"
         case .manual: "Manual"
         }
     }
@@ -22,13 +23,57 @@ public struct JobSchedule: Equatable, Codable, Sendable {
     public var hour: Int
     public var minute: Int
     public var weekday: Int
+    /// Local calendar date of a `.once` schedule; `hour` and `minute` give its time.
+    public var year: Int
+    public var month: Int
+    public var day: Int
 
-    public init(kind: ScheduleKind = .daily, intervalMinutes: Int = 60, hour: Int = 9, minute: Int = 0, weekday: Int = 1) {
+    public init(kind: ScheduleKind = .daily, intervalMinutes: Int = 60, hour: Int = 9, minute: Int = 0, weekday: Int = 1,
+                year: Int = 2000, month: Int = 1, day: Int = 1)
+    {
         self.kind = kind
         self.intervalMinutes = intervalMinutes
         self.hour = hour
         self.minute = minute
         self.weekday = weekday
+        self.year = year
+        self.month = month
+        self.day = day
+    }
+
+    /// Strictly parses local `YYYY-MM-DDTHH:MM` into a `.once` schedule.
+    public static func once(_ text: String) -> JobSchedule? {
+        let parts = text.split(separator: "T", omittingEmptySubsequences: false)
+        guard text.utf8.count == 16, parts.count == 2 else { return nil }
+        let date = parts[0].split(separator: "-", omittingEmptySubsequences: false)
+        let time = parts[1].split(separator: ":", omittingEmptySubsequences: false)
+        let fields = date + time
+        guard date.count == 3, time.count == 2, zip(fields, [4, 2, 2, 2, 2]).allSatisfy({ field, width in
+            field.utf8.count == width && field.utf8.allSatisfy { (48 ... 57).contains($0) }
+        }) else { return nil }
+        let numbers = fields.compactMap { Int($0) }
+        return JobSchedule(kind: .once, hour: numbers[3], minute: numbers[4], year: numbers[0], month: numbers[1], day: numbers[2])
+    }
+
+    public var onceDateText: String {
+        String(format: "%04d-%02d-%02dT%02d:%02d", year, month, day, hour, minute)
+    }
+
+    /// The local moment of a `.once` schedule, or nil if that wall-clock time does not exist (for example Feb 30).
+    public func onceDate(calendar: Calendar = .current) -> Date? {
+        let components = DateComponents(year: year, month: month, day: day, hour: hour, minute: minute)
+        guard let date = calendar.date(from: components) else { return nil }
+        let actual = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        return actual == components ? date : nil
+    }
+
+    public mutating func setOnceDate(_ date: Date, calendar: Calendar = .current) {
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        year = components.year ?? year
+        month = components.month ?? month
+        day = components.day ?? day
+        hour = components.hour ?? hour
+        minute = components.minute ?? minute
     }
 
     public var summary: String {
@@ -40,12 +85,16 @@ public struct JobSchedule: Equatable, Codable, Sendable {
             let days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
             let day = days.indices.contains(weekday) ? days[weekday] : "?"
             return "Every \(day) at \(time)"
+        case .once: return "Once on \(onceDateText.prefix(10)) at \(time)"
         case .manual: return "Manual only"
         }
     }
 
     public func nextCalendarRun(after date: Date = Date(), calendar: Calendar = .current) -> Date? {
         guard (0 ... 23).contains(hour), (0 ... 59).contains(minute) else { return nil }
+        if kind == .once {
+            return onceDate(calendar: calendar).flatMap { $0 > date ? $0 : nil }
+        }
         var components = DateComponents()
         components.hour = hour
         components.minute = minute
@@ -55,7 +104,7 @@ public struct JobSchedule: Equatable, Codable, Sendable {
         case .weekly:
             guard (0 ... 6).contains(weekday) else { return nil }
             components.weekday = weekday + 1
-        case .interval, .manual: return nil
+        case .interval, .manual, .once: return nil
         }
         return calendar.nextDate(after: date, matching: components, matchingPolicy: .nextTime,
                                  repeatedTimePolicy: .first, direction: .forward)
@@ -73,6 +122,12 @@ public struct JobSchedule: Equatable, Codable, Sendable {
             }
             if kind == .weekly, !(0 ... 6).contains(weekday) {
                 throw JobletError("Select a weekday to run on.")
+            }
+        case .once:
+            // Whether the date is still in the future is checked when saving, not here:
+            // a finished one-time job must still decode as editable.
+            guard (2000 ... 9999).contains(year), onceDate() != nil else {
+                throw JobletError("Choose a valid date and time for the one-time run.")
             }
         case .manual: break
         }
@@ -116,6 +171,9 @@ public struct JobDraft: Equatable, Sendable {
             throw JobletError("The working directory must be an absolute path or start with ~/. If left empty, the home folder is used.")
         }
         try schedule.validate()
+        if schedule.kind == .once, runAtLoad {
+            throw JobletError("A one-time job cannot also run when loaded; it would run and remove itself right away.")
+        }
     }
 }
 
@@ -220,6 +278,13 @@ public struct LaunchJob: Identifiable, Sendable {
         self.runtime = runtime
         self.draft = draft
         revision = nil
+    }
+
+    /// A one-time job that unregistered itself after running: it is unloaded and wrote to its log after the scheduled time.
+    public var isOnceDone: Bool {
+        guard schedule?.kind == .once, runtime.phase == .unloaded,
+              let date = schedule?.onceDate(), let lastLogWrite else { return false }
+        return lastLogWrite >= date
     }
 
     /// Estimated next start, only for an enabled, loaded job. An interval job uses its last log write

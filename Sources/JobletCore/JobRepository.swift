@@ -181,6 +181,9 @@ public actor JobRepository {
         if enabled, original.runtime.isEnabled == true {
             return
         }
+        if enabled, let schedule = context.document.schedule, schedule.kind == .once {
+            try Self.requireFutureOnceDate(schedule)
+        }
         if !enabled, original.runtime.phase == .unloaded, original.runtime.isDisabled == true {
             return
         }
@@ -305,8 +308,17 @@ public actor JobRepository {
         mutationInProgress = true
     }
 
+    private static func requireFutureOnceDate(_ schedule: JobSchedule) throws {
+        guard let date = schedule.onceDate(), date > Date() else {
+            throw JobletError("The one-time date has passed. Edit the job and choose a date and time in the future.")
+        }
+    }
+
     private func validateDraft(_ draft: JobDraft) throws {
         try draft.validate()
+        if draft.schedule.kind == .once {
+            try Self.requireFutureOnceDate(draft.schedule)
+        }
         let directory = JobPlist.normalizedWorkingDirectory(draft.workingDirectory, home: home)
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: directory, isDirectory: &isDirectory), isDirectory.boolValue else {

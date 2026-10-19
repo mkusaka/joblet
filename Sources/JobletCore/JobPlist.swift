@@ -22,6 +22,23 @@ enum JobPlist {
     static let labelPrefix = "local.joblet."
     static let marker = "Joblet/v1: "
     static let commandPath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    static let onceArgvZero = "joblet-once"
+
+    /// Fixed wrapper for a one-time job: `$1` is the scheduled `YYYY-MM-DDTHH:MM` and `$2` the user command, both passed
+    /// as separate arguments and never spliced into this text. The command runs in a child zsh, so its own `exit` cannot
+    /// skip the cleanup. launchd has no Year, so a run in another year is skipped. Afterwards the job disables itself
+    /// (so the next login does not load it again) and unloads itself; bootout ends this shell.
+    static func onceScript(label: String) -> String {
+        let target = "gui/$UID/\(label)"
+        return #"if [[ "$(/bin/date +%Y)" == "${1[1,4]}" ]]; then /bin/zsh -c "$2"; "#
+            + #"print -r -- "joblet: one-time run finished with exit status $?"; "#
+            + #"else print -r -- "joblet: skipped; this one-time run was scheduled for $1"; fi; "#
+            + "/bin/launchctl disable \(target); /bin/launchctl bootout \(target)"
+    }
+
+    static func onceProgramArguments(label: String, schedule: JobSchedule, command: String) -> [String] {
+        ["/bin/zsh", "-c", onceScript(label: label), onceArgvZero, schedule.onceDateText, command]
+    }
 
     static func isSafeLabel(_ label: String) -> Bool {
         guard (1 ... 255).contains(label.utf8.count), let first = label.utf8.first,
@@ -69,6 +86,10 @@ enum JobPlist {
         case .interval: dictionary["StartInterval"] = draft.schedule.intervalMinutes * 60
         case .daily: dictionary["StartCalendarInterval"] = ["Hour": draft.schedule.hour, "Minute": draft.schedule.minute]
         case .weekly: dictionary["StartCalendarInterval"] = ["Weekday": draft.schedule.weekday, "Hour": draft.schedule.hour, "Minute": draft.schedule.minute]
+        case .once:
+            dictionary["StartCalendarInterval"] = ["Month": draft.schedule.month, "Day": draft.schedule.day,
+                                                   "Hour": draft.schedule.hour, "Minute": draft.schedule.minute]
+            dictionary["ProgramArguments"] = onceProgramArguments(label: label, schedule: draft.schedule, command: draft.command)
         case .manual: break
         }
         return try PropertyListSerialization.data(fromPropertyList: dictionary, format: .xml, options: 0)
@@ -84,10 +105,23 @@ enum JobPlist {
         let name = hasMarker ? String(comment!.dropFirst(marker.count)) : label
         let arguments = dictionary["ProgramArguments"] as? [String]
         let program = dictionary["Program"] as? String
-        let command: String = if program == nil, let arguments, arguments.count == 3,
-                                 arguments[0] == "/bin/zsh", arguments[1] == "-c"
+        let plainCommand: String? = if program == nil, let arguments, arguments.count == 3,
+                                       arguments[0] == "/bin/zsh", arguments[1] == "-c"
         {
             arguments[2]
+        } else {
+            nil
+        }
+        let onceSchedule: JobSchedule? = if program == nil, let arguments, arguments.count == 6,
+                                            Array(arguments[0 ... 3]) == ["/bin/zsh", "-c", onceScript(label: label), onceArgvZero]
+        {
+            JobSchedule.once(arguments[4])
+        } else {
+            nil
+        }
+        let onceCommand = onceSchedule == nil ? nil : arguments?[5]
+        let command: String = if let shown = onceCommand ?? plainCommand {
+            shown
         } else if let program {
             // The first ProgramArguments item is argv[0], not an extra shell argument.
             "Program: \(program)\nProgramArguments: " + (arguments ?? []).map(shellQuoteForDisplay).joined(separator: " ")
@@ -96,7 +130,10 @@ enum JobPlist {
         } else {
             "(Cannot read Program / ProgramArguments)"
         }
-        let schedule = parseSchedule(dictionary)
+        // Our wrapper is only a one-time schedule when the calendar matches its date exactly; anything else is custom.
+        let parsed = parseSchedule(dictionary, once: onceSchedule)
+        let schedule = onceSchedule == nil || parsed?.kind == .once ? parsed : nil
+        let shellCommand = schedule?.kind == .once ? onceCommand : plainCommand
         let runAtLoad = strictBool(dictionary["RunAtLoad"])
         let disabled = strictBool(dictionary["Disabled"])
         let working = dictionary["WorkingDirectory"] as? String
@@ -110,14 +147,13 @@ enum JobPlist {
         let keys = Set(dictionary.keys)
         if managedLabel(label), hasMarker,
            required.isSubset(of: keys), keys.isSubset(of: permitted),
-           let arguments, arguments.count == 3, arguments[0] == "/bin/zsh", arguments[1] == "-c",
-           let schedule, let runAtLoad, let disabled, let working, working.hasPrefix("/"),
+           let shellCommand, let schedule, let runAtLoad, let disabled, let working, working.hasPrefix("/"),
            normalizedWorkingDirectory(working, home: home) == working,
            environment == ["PATH": commandPath],
            stdout == expectedLogs.appendingPathComponent("stdout.log").path,
            stderr == expectedLogs.appendingPathComponent("stderr.log").path
         {
-            let candidate = JobDraft(name: name, command: arguments[2], workingDirectory: working,
+            let candidate = JobDraft(name: name, command: shellCommand, workingDirectory: working,
                                      schedule: schedule, runAtLoad: runAtLoad, enabled: !disabled)
             do { try candidate.validate(); draft = candidate }
             catch { draft = nil }
@@ -139,7 +175,8 @@ enum JobPlist {
         return String(decoding: xml, as: UTF8.self)
     }
 
-    static func parseSchedule(_ dictionary: [String: Any]) -> JobSchedule? {
+    /// `once` is the date carried by Joblet's one-time wrapper; only then can a Month/Day calendar be reduced to `.once`.
+    static func parseSchedule(_ dictionary: [String: Any], once: JobSchedule? = nil) -> JobSchedule? {
         let interval = dictionary["StartInterval"]
         let calendar = dictionary["StartCalendarInterval"]
         // Other launch conditions cannot be faithfully reduced to the simple editor.
@@ -162,6 +199,12 @@ enum JobPlist {
             }
             if keys == Set(["Hour", "Minute", "Weekday"]), let weekday = strictInteger(components["Weekday"]), (0 ... 6).contains(weekday) {
                 return JobSchedule(kind: .weekly, hour: hour, minute: minute, weekday: weekday)
+            }
+            if keys == Set(["Month", "Day", "Hour", "Minute"]), let once,
+               strictInteger(components["Month"]) == once.month, strictInteger(components["Day"]) == once.day,
+               hour == once.hour, minute == once.minute
+            {
+                return once
             }
             return nil
         }

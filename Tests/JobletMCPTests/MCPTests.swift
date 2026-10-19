@@ -134,6 +134,37 @@ final class MCPTests: XCTestCase {
         XCTAssertEqual(ISO8601DateFormatter().date(from: estimate), lastRun.addingTimeInterval(600))
     }
 
+    func testOnceScheduleIsValidatedAndRoundTrips() async throws {
+        let home = try MCPTemporaryHome()
+        let repository = JobRepository(homeDirectory: home.url, runner: InMemoryLaunchctl())
+        let server = MCPProtocolServer(router: MCPToolRouter(service: repository, permissions: .init(allowWrite: true)))
+        _ = try await request(server, 1, "initialize", ["protocolVersion": "2025-11-25"])
+        let year = Calendar.current.component(.year, from: Date())
+        let date = "\(year + 1)-03-04T05:06"
+        for (schedule, message) in [
+            (["kind": "once", "date": "\(year - 1)-03-04T05:06"], "future"),
+            (["kind": "once", "date": "\(year + 1)-03-04 05:06"], "YYYY-MM-DDTHH:MM"),
+            (["kind": "once", "date": "\(year + 1)-02-30T05:06"], "valid date"),
+            (["kind": "once"], "date"),
+            (["kind": "once", "date": date, "hour": 5], "only kind and date"),
+        ] as [([String: Any], String)] {
+            let error = try await callError(server, "create_job", ["name": "Once", "command": "date", "schedule": schedule])
+            XCTAssertTrue(error.contains(message), "\(schedule): \(error)")
+        }
+        let created = try await call(server, "create_job", ["name": "Once", "command": "echo 'hi'; exit 3", "enabled": true,
+                                                            "schedule": ["kind": "once", "date": date]])
+        let label = try XCTUnwrap(created["label"] as? String)
+        let job = try await call(server, "get_job", ["label": label])
+        XCTAssertEqual(job["schedule"] as? String, "Once on \(year + 1)-03-04 at 05:06")
+        XCTAssertEqual(job["command"] as? String, "echo 'hi'; exit 3")
+        XCTAssertEqual(job["once_done"] as? Bool, false)
+        XCTAssertEqual(job["phase"] as? String, "waiting")
+        let configuration = try XCTUnwrap(job["editable_configuration"] as? [String: Any])
+        XCTAssertEqual(configuration["schedule"] as? [String: String], ["kind": "once", "date": date])
+        let estimate = try XCTUnwrap(job["next_run_estimate"] as? String)
+        XCTAssertEqual(ISO8601DateFormatter().date(from: estimate), JobSchedule.once(date)?.onceDate())
+    }
+
     func testSuccessfulDeleteRetainsBackupAndLogs() async throws {
         let home = try MCPTemporaryHome()
         let repository = JobRepository(homeDirectory: home.url, runner: InMemoryLaunchctl())

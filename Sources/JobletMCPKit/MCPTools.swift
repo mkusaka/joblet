@@ -347,6 +347,7 @@ public actor MCPToolRouter {
          "pid": job.runtime.pid as Any? ?? NSNull(),
          "last_exit_code": job.runtime.lastExitCode as Any? ?? NSNull(),
          "next_run_estimate": job.nextRunEstimate().map(localISO8601) as Any? ?? NSNull(),
+         "once_done": job.isOnceDone,
          "revision": job.revisionToken as Any? ?? NSNull()]
     }
 
@@ -380,13 +381,14 @@ public actor MCPToolRouter {
         case .interval: ["kind": "interval", "interval_minutes": schedule.intervalMinutes]
         case .daily: ["kind": "daily", "hour": schedule.hour, "minute": schedule.minute]
         case .weekly: ["kind": "weekly", "weekday": schedule.weekday, "hour": schedule.hour, "minute": schedule.minute]
+        case .once: ["kind": "once", "date": schedule.onceDateText]
         case .manual: ["kind": "manual"]
         }
     }
 
     private static func parseSchedule(_ raw: [String: Any]?) throws -> JobSchedule {
         guard let raw else { return JobSchedule(kind: .manual) }
-        let args = try ToolArguments(raw, allowed: ["kind", "interval_minutes", "hour", "minute", "weekday"])
+        let args = try ToolArguments(raw, allowed: ["kind", "interval_minutes", "hour", "minute", "weekday", "date"])
         let kindValue = try args.string("kind", required: true)!
         guard let kind = ScheduleKind(rawValue: kindValue) else { throw MCPToolError("Unknown schedule kind: \(kindValue)") }
         var schedule = JobSchedule(kind: kind)
@@ -403,6 +405,13 @@ public actor MCPToolRouter {
             schedule.hour = try args.int("hour", required: true)!
             schedule.minute = try args.int("minute", required: true)!
             schedule.weekday = try args.int("weekday", required: true)!
+        case .once:
+            guard raw.keys.allSatisfy({ ["kind", "date"].contains($0) }) else { throw MCPToolError("once schedule accepts only kind and date") }
+            let text = try args.string("date", required: true)!
+            guard let once = JobSchedule.once(text) else {
+                throw MCPToolError("date must be local time formatted as YYYY-MM-DDTHH:MM, for example 2026-10-20T09:00")
+            }
+            schedule = once
         case .manual:
             guard raw.count == 1 else { throw MCPToolError("manual schedule accepts only kind") }
         }
@@ -441,12 +450,13 @@ public actor MCPToolRouter {
     }
 
     private static func scheduleSchema() -> [String: Any] {
-        ["type": "object", "description": "manual, interval (interval_minutes), daily (hour/minute), weekly (weekday 0=Sunday..6=Saturday, hour/minute)",
-         "properties": ["kind": enumStr(["manual", "interval", "daily", "weekly"]),
+        ["type": "object", "description": "manual, interval (interval_minutes), daily (hour/minute), weekly (weekday 0=Sunday..6=Saturday, hour/minute), once (date: future local time YYYY-MM-DDTHH:MM; the job disables and unregisters itself after running)",
+         "properties": ["kind": enumStr(["manual", "interval", "daily", "weekly", "once"]),
                         "interval_minutes": int("1..525600", minimum: 1, maximum: 525_600),
                         "hour": int("0..23", minimum: 0, maximum: 23),
                         "minute": int("0..59", minimum: 0, maximum: 59),
-                        "weekday": int("0=Sunday..6=Saturday", minimum: 0, maximum: 6)],
+                        "weekday": int("0=Sunday..6=Saturday", minimum: 0, maximum: 6),
+                        "date": str("once only: local date and time, YYYY-MM-DDTHH:MM")],
          "required": ["kind"], "additionalProperties": false]
     }
 }

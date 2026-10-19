@@ -37,8 +37,9 @@ final class ModelsAndPlistTests: XCTestCase {
         for kind in ScheduleKind.allCases {
             let input = JobDraft(name: "Nightly export", command: "printf '%s\\n' \"$HOME\"",
                                  workingDirectory: home.path,
-                                 schedule: JobSchedule(kind: kind, intervalMinutes: 37, hour: 18, minute: 23, weekday: 5),
-                                 runAtLoad: true, enabled: false)
+                                 schedule: JobSchedule(kind: kind, intervalMinutes: 37, hour: 18, minute: 23, weekday: 5,
+                                                       year: 2031, month: 2, day: 28),
+                                 runAtLoad: kind != .once, enabled: false)
             let data = try JobPlist.encode(input, label: label, home: home)
             let decoded = try JobPlist.decode(data, home: home)
             XCTAssertTrue(decoded.isCanonical)

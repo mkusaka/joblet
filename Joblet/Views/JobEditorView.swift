@@ -66,6 +66,18 @@ struct JobEditorView: View {
         }
     }
 
+    private var selectedOnceDate: Binding<Date> {
+        Binding {
+            draft.schedule.onceDate() ?? Date()
+        } set: { value in
+            draft.schedule.setOnceDate(value)
+        }
+    }
+
+    private var oncePassed: Bool {
+        (draft.schedule.onceDate() ?? .distantPast) <= Date()
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 14) {
@@ -231,6 +243,23 @@ struct JobEditorView: View {
                     Spacer()
                     timePicker
                 }
+            case .once:
+                HStack {
+                    Text("Date and time")
+                    Spacer()
+                    DatePicker("Run once at", selection: selectedOnceDate, displayedComponents: [.date, .hourAndMinute])
+                        .labelsHidden()
+                        .fixedSize()
+                        .accessibilityIdentifier("editor-once-date")
+                }
+                if oncePassed {
+                    Text("This date has passed. Choose a date and time in the future.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+                Text("Runs once, then disables and unregisters itself. If the Mac is asleep at that time, it runs on wake; if the Mac is off, the run is missed.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             case .manual:
                 Text("Start the job from Run Now. No recurring schedule is set.")
                     .font(.callout)
@@ -244,6 +273,16 @@ struct JobEditorView: View {
                 Text("Uses this Mac's time zone. The actual start time depends on whether the Mac is awake.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+        }
+        .onChange(of: draft.schedule.kind) { _, kind in
+            guard kind == .once else { return }
+            draft.runAtLoad = false
+            let calendar = Calendar.current
+            if oncePassed, let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date()),
+               let morning = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow)
+            {
+                draft.schedule.setOnceDate(morning)
             }
         }
     }
@@ -262,6 +301,7 @@ struct JobEditorView: View {
             }
 
             Toggle("Also run at login or when the job is loaded", isOn: $draft.runAtLoad)
+                .disabled(draft.schedule.kind == .once)
                 .accessibilityIdentifier("editor-run-at-load")
             if draft.runAtLoad {
                 InlineNotice(

@@ -279,10 +279,11 @@ struct JobEditorView: View {
             guard kind == .once else { return }
             draft.runAtLoad = false
             let calendar = Calendar.current
+            // Tomorrow at the time already set, so switching kinds back and forth keeps a daily or weekly time.
             if oncePassed, let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date()),
-               let morning = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow)
+               let date = calendar.date(bySettingHour: draft.schedule.hour, minute: draft.schedule.minute, second: 0, of: tomorrow)
             {
-                draft.schedule.setOnceDate(morning)
+                draft.schedule.setOnceDate(date)
             }
         }
     }

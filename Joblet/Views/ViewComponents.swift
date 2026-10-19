@@ -53,10 +53,17 @@ extension LaunchJob {
 }
 
 struct JobStatusBadge: View {
-    let runtime: JobRuntime
+    let job: LaunchJob
+
+    private var runtime: JobRuntime {
+        job.runtime
+    }
 
     private var color: Color {
-        switch runtime.phase {
+        if job.isOnceDone {
+            return .secondary
+        }
+        return switch runtime.phase {
         case .running: .green
         case .waiting: runtime.isDisabled == true ? .secondary : .accentColor
         case .unloaded: .secondary
@@ -67,7 +74,7 @@ struct JobStatusBadge: View {
     var body: some View {
         HStack(spacing: 5) {
             Circle().fill(color).frame(width: 6, height: 6)
-            Text(runtime.phase.title)
+            Text(job.isOnceDone ? "Done" : runtime.phase.title)
                 .font(.caption)
         }
         .foregroundStyle(color)
@@ -99,7 +106,7 @@ struct JobListRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                JobStatusBadge(runtime: job.runtime)
+                JobStatusBadge(job: job)
                     .accessibilityIdentifier("job-row-status")
             }
             Spacer(minLength: 0)

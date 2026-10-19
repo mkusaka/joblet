@@ -120,6 +120,30 @@ final class JobletUITests: XCTestCase {
         XCTAssertEqual(rowCount, 4)
     }
 
+    func testCreateOnceJobShowsItsDateInListAndDetail() throws {
+        element("add-job-button").click()
+        let nameField = element("editor-name")
+        XCTAssertTrue(nameField.waitForExistence(timeout: timeout))
+        replaceText(in: nameField, with: "One Shot")
+        replaceText(in: element("editor-command"), with: "echo once")
+        app.radioButtons["Once"].click()
+        XCTAssertTrue(element("editor-once-date").waitForExistence(timeout: timeout))
+        element("editor-save").click()
+        XCTAssertTrue(waitForGone(element("editor-save")), "Editor did not close")
+
+        // A new Once draft defaults to tomorrow at 09:00 in this Mac's time zone.
+        let tomorrow = try XCTUnwrap(Calendar.current.date(byAdding: .day, value: 1, to: Date()))
+        let day = Calendar.current.dateComponents([.year, .month, .day], from: tomorrow)
+        let expected = String(format: "Once on %04d-%02d-%02d at 09:00", day.year ?? 0, day.month ?? 0, day.day ?? 0)
+        XCTAssertTrue(rowName("One Shot").waitForExistence(timeout: timeout))
+        XCTAssertTrue(waitForText(element("detail-name"), "One Shot"))
+        XCTAssertTrue(waitForText(element("detail-command"), "echo once"))
+        app.radioButtons["Schedule"].click()
+        XCTAssertTrue(waitForText(element("detail-schedule"), expected))
+        XCTAssertTrue(element("job-list").staticTexts.matching(NSPredicate(format: "value == %@", expected)).firstMatch.exists)
+        XCTAssertEqual(text(element("detail-status")), "Waiting")
+    }
+
     func testEditJob() {
         select("Nightly Backup")
         element("edit-button").click()

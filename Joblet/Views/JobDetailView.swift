@@ -121,7 +121,7 @@ struct JobDetailView: View {
                             .background(Color.accentColor.opacity(job.isManaged ? 0.15 : 0.0), in: Capsule())
                             .foregroundStyle(job.isManaged ? Color.accentColor : Color.secondary)
                     }
-                    JobStatusBadge(runtime: job.runtime)
+                    JobStatusBadge(job: job)
                         .accessibilityIdentifier("detail-status")
                 }
                 Spacer(minLength: 8)
@@ -293,6 +293,21 @@ struct JobDetailView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            if job.isOnceDone {
+                Text("This one-time job ran and unregistered itself. To run it again, edit it and choose a new date.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("detail-once-done")
+            } else if job.schedule?.kind == .once, job.runtime.phase == .waiting,
+                      let date = job.schedule?.onceDate(), date.addingTimeInterval(120) < Date()
+            {
+                InlineNotice(
+                    message: "The scheduled time has passed but the job is still registered, so the run was probably missed (for example, the Mac was off). It will not run in another year; edit it to choose a new date, or disable it.",
+                    symbol: "exclamationmark.triangle",
+                    color: .orange
+                )
             }
 
             if job.draft?.runAtLoad == true {

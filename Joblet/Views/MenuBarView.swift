@@ -79,7 +79,7 @@ struct MenuBarView: View {
                                         .lineLimit(1)
                                 }
                                 Spacer(minLength: 6)
-                                JobStatusBadge(runtime: job.runtime)
+                                JobStatusBadge(job: job)
                             }
                             .padding(.vertical, 6)
                             .contentShape(Rectangle())

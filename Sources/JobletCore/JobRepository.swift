@@ -103,6 +103,7 @@ public actor JobRepository {
                                 canControl: safe, runtime: probe.runtime, draft: draft)
             job.revision = file.revision
             job.group = groups[document.label]
+            job.lastLogWrite = lastLogWrite(document)
             jobs.append(job)
         }
         jobs.sort {
@@ -254,6 +255,16 @@ public actor JobRepository {
             throw JobletError("Unsupported log destination (for example a relative path): \(path)")
         }
         return try JobFileIO.tail(URL(fileURLWithPath: path), maxBytes: maxBytes)
+    }
+
+    private func lastLogWrite(_ document: DecodedJobPlist) -> Date? {
+        [document.stdout, document.stderr].compactMap { path -> Date? in
+            guard let path, path.hasPrefix("/") else { return nil }
+            let values = try? URL(fileURLWithPath: path).resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+            // Joblet creates empty log files up front, so an empty file says nothing about a run.
+            guard let size = values?.fileSize, size > 0 else { return nil }
+            return values?.contentModificationDate
+        }.max()
     }
 
     public func plistText(for job: LaunchJob) throws -> String {

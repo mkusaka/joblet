@@ -192,6 +192,8 @@ public struct LaunchJob: Identifiable, Sendable {
     public let draft: JobDraft?
     /// Stored in Joblet's own groups.json, never in the plist, so any job can be grouped.
     public var group: String?
+    /// Newest modification time of a non-empty stdout/stderr log; nil when neither was ever written.
+    public var lastLogWrite: Date?
     var revision: FileRevision?
     /// Optimistic-concurrency token (not a secret) that changes whenever the plist file changes.
     public var revisionToken: String? {
@@ -218,6 +220,16 @@ public struct LaunchJob: Identifiable, Sendable {
         self.runtime = runtime
         self.draft = draft
         revision = nil
+    }
+
+    /// Estimated next start, only for an enabled, loaded job. An interval job uses its last log write
+    /// plus the interval, because launchd does not report interval run times; the result can be in the past.
+    public func nextRunEstimate(now: Date = Date(), calendar: Calendar = .current) -> Date? {
+        guard runtime.isEnabled == true, let schedule else { return nil }
+        if schedule.kind == .interval {
+            return lastLogWrite?.addingTimeInterval(TimeInterval(schedule.intervalMinutes * 60))
+        }
+        return schedule.nextCalendarRun(after: now, calendar: calendar)
     }
 }
 

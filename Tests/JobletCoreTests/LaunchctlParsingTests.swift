@@ -31,6 +31,29 @@ final class LaunchctlParsingTests: XCTestCase {
         XCTAssertEqual(probe.loadedPath, "/Users/tester/Library/LaunchAgents/example.plist")
     }
 
+    func testCalendarEventTriggersDoNotHideTheState() {
+        let text = """
+        gui/501/example = {
+            path = /Users/tester/Library/LaunchAgents/example.plist
+            state = not running
+            last exit code = (never exited)
+            event triggers = {
+                example.268435472 => {
+                    keepalive = 0
+                    stream = com.apple.launchd.calendarinterval
+                    descriptor = {
+                        "Minute" => 0
+                        "Hour" => 4
+                    }
+                }
+            }
+        }
+        """
+        let probe = LaunchctlClient.parseProbe(CommandResult(exitCode: 0, stdout: text, stderr: ""), label: "example", disabled: false)
+        XCTAssertEqual(probe.runtime.phase, .waiting)
+        XCTAssertEqual(probe.loadedPath, "/Users/tester/Library/LaunchAgents/example.plist")
+    }
+
     func testOnlyExplicitMissingServiceIsUnloaded() {
         let absent = CommandResult(exitCode: 113, stdout: "", stderr: "Could not find service \"example\" in domain for user gui: 501")
         XCTAssertEqual(LaunchctlClient.parseProbe(absent, label: "example", disabled: false).runtime.phase, .unloaded)

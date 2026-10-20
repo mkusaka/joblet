@@ -198,7 +198,7 @@ struct LaunchctlClient {
         let interesting: Set = ["path", "state", "pid", "last exit code"]
         for line in result.stdout.components(separatedBy: .newlines) {
             let line = line.trimmingCharacters(in: .whitespaces)
-            if line.hasSuffix("= {") || line == "{" {
+            if line.hasSuffix("= {") || line.hasSuffix("=> {") || line == "{" {
                 depth += 1; continue
             }
             if line == "}" || line == "};" {

@@ -29,5 +29,13 @@
         <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
         <enclosure url="https://github.com/mkusaka/joblet/releases/download/v0.0.5/Joblet.zip" sparkle:edSignature="qhOYKHUHfdrozh9bXPZXf17OsoLAWz416JIfO0QQs7eQNDIi4mUvTcIZfpd3LFtyMeKqK4LWoVHGmCbdwk9JDQ==" length="2601157" type="application/octet-stream"/>
     </item>
+    <item>
+        <title>Version 0.0.6</title>
+        <pubDate>Tue, 20 Oct 2026 04:49:52 +0000</pubDate>
+        <sparkle:version>6</sparkle:version>
+        <sparkle:shortVersionString>0.0.6</sparkle:shortVersionString>
+        <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+        <enclosure url="https://github.com/mkusaka/joblet/releases/download/v0.0.6/Joblet.zip" sparkle:edSignature="ASVGW4r3Mo1QSGqJp1ugYl1eZF35BVakibfRRrKcC+wPjs8m3zKWXtoocerbA8z77dSWoecQE2Ts9D5niO8BAw==" length="2600880" type="application/octet-stream"/>
+    </item>
     </channel>
 </rss>

@@ -10,6 +10,9 @@ on:
         required: false
         default: '0.0.0'
         type: string
+concurrency:
+  group: ${{ github.workflow }}-caller-${{ github.ref }}
+  cancel-in-progress: false
 permissions: {}
 jobs:
   test:
@@ -245,6 +248,7 @@ jobs:
         run: |
           SHA256=$(shasum -a 256 Joblet.zip | awk '{print $1}')
           echo "SHA256=$SHA256" >> "$GITHUB_ENV"
+        shell: bash
       - name: Download Sparkle tools
         if: github.event_name != 'workflow_dispatch'
         env:

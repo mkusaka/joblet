@@ -253,7 +253,7 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SPARKLE_VERSION: "2.10.0"
+          SPARKLE_VERSION: "2.10.1"
         run: |
           gh release download "$SPARKLE_VERSION" --repo sparkle-project/Sparkle \
             --pattern 'Sparkle-*.tar.xz' -D "$RUNNER_TEMP"
